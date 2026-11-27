@@ -2,8 +2,10 @@
 Janela
 
 Fixa o tamanho da janela da consola e impede que se redimensione ou maximize. Só tem efeito na
-consola clássica do Windows (conhost): o Windows Terminal não deixa os programas mudar a sua
-janela, e nesse caso o Caduceus corre no tamanho que o terminal tiver.
+consola clássica do Windows (conhost). No Windows Terminal não se mexe em nada: ele não deixa os
+programas mudar a sua janela, e o comando `mode` só lhe muda o tamanho que o programa julga ter,
+por isso o ecrã seria desenhado mais largo do que a janela e quebrava. Aí o Caduceus corre no
+tamanho que o terminal tiver, e o ecrã adapta-se a ele.
 """
 
 import ctypes
@@ -14,6 +16,7 @@ from ctypes import wintypes
 from caduceus.config import WINDOW_COLUMNS, WINDOW_LINES
 
 _MODE_COMMAND = r"%WINDIR%\System32\mode.com"
+_WINDOWS_TERMINAL_VARIABLE = "WT_SESSION"
 _GWL_STYLE = -16
 _WS_THICKFRAME = 0x00040000
 _WS_MAXIMIZEBOX = 0x00010000
@@ -39,6 +42,8 @@ def _lock_resizing() -> None:
 
 
 def fix_console_size() -> None:
+    if _WINDOWS_TERMINAL_VARIABLE in os.environ:
+        return
     subprocess.run(
         [
             os.path.expandvars(_MODE_COMMAND),
