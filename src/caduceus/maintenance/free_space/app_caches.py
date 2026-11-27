@@ -3,12 +3,12 @@ Limpar as caches das aplicações
 
 Apaga as caches de aplicações conhecidas: Discord, Slack, Microsoft Teams, Telegram, Spotify, Zoom
 (neste, os registos), Notion, Obsidian, Figma, Postman, VS Code (incluindo as extensões
-descarregadas), Cursor, GitHub Desktop, a loja do Steam, o Epic Games Launcher, o Adobe (a cache de
-multimédia) e o OneDrive (só os registos). Só mexe nas pastas de cache: nunca
-em contas, mensagens, notas, definições nem nas músicas descarregadas do Spotify. As aplicações de
-conversa, trabalho e multimédia que estiverem abertas são fechadas à força antes de limpar (não as
-de programação, nem o Steam e o Epic, para não perder trabalho nem uma transferência). O que não
-está instalado é ignorado.
+descarregadas), Cursor, GitHub Desktop, a loja e a cache de transferências do Steam (`depotcache`),
+o Epic Games Launcher, o Adobe (a cache de multimédia) e o OneDrive (só os registos). Só mexe nas
+pastas de cache: nunca em contas, mensagens, notas, definições, jogos instalados nem nas músicas
+descarregadas do Spotify. As aplicações de conversa, trabalho e multimédia que estiverem abertas são
+fechadas à força antes de limpar (não as de programação, nem o Steam e o Epic, para não perder
+trabalho nem uma transferência). O que não está instalado é ignorado.
 """
 
 import time
@@ -23,6 +23,7 @@ from caduceus.maintenance.free_space.cleaner import (
 from caduceus.maintenance.system_tool import run_system_tool
 
 _VSCODE = "category.app_vscode"
+_STEAM = "category.app_steam"
 _NEW_TEAMS = r"%LOCALAPPDATA%\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams"
 _SPOTIFY_STORE = r"%LOCALAPPDATA%\Packages\SpotifyAB.SpotifyMusic_zpdnekdrzrea0\LocalCache\Spotify"
 # O código de saída do `taskkill` é 0 quando fechou algo; sem nada aberto, devolve outro e segue-se
@@ -54,7 +55,9 @@ LOCATIONS = (
     *chromium_caches(r"%APPDATA%\Figma", "category.app_figma"),
     *chromium_caches(r"%APPDATA%\Postman", "category.app_postman"),
     Location(r"%LOCALAPPDATA%\EpicGamesLauncher\Saved\webcache*", "category.app_epic"),
-    *chromium_caches(r"%LOCALAPPDATA%\Steam\htmlcache\*", "category.app_steam"),
+    *chromium_caches(r"%LOCALAPPDATA%\Steam\htmlcache\*", _STEAM),
+    Location(r"%PROGRAMFILES(X86)%\Steam\depotcache", _STEAM),
+    Location(r"%PROGRAMFILES(X86)%\Steam\appcache\httpcache", _STEAM),
     *chromium_caches(r"%APPDATA%\Microsoft\Teams", "category.app_teams"),
     *chromium_caches(_NEW_TEAMS + r"\EBWebView\Default", "category.app_teams"),
     Location(r"%LOCALAPPDATA%\Spotify\Data", "category.app_spotify"),

@@ -2,7 +2,8 @@ r"""
 Limpar as caches de programação
 
 Apaga as caches de pacotes do npm, do pnpm, do Yarn, do Bun, do pip, do uv, do Poetry, do Composer,
-do NuGet, do Gradle, do Cargo, do Go e do Dart, a cache de componentes do Visual Studio e as caches
+do NuGet, do Gradle, do Cargo, do Go e do Dart, a cache de pacotes do Unity, a Derived Data Cache do
+Unreal Engine, a cache de componentes do Visual Studio e as caches
 dos IDE da JetBrains (que se reconstroem com uma nova indexação). Os pacotes voltam a ser
 descarregados na próxima compilação ou instalação (sem rede, essa compilação falha). Não mexe nos
 projetos, nos `node_modules` nem na pasta `.nuget\packages`. O que não está instalado é ignorado.
@@ -36,6 +37,8 @@ LOCATIONS = (
         "category.visual_studio_cache",
     ),
     Location(r"%LOCALAPPDATA%\JetBrains\*\caches", "category.jetbrains_cache"),
+    Location(r"%LOCALAPPDATA%\Unity\cache\packages", "category.unity_cache"),
+    Location(r"%LOCALAPPDATA%\UnrealEngine\Common\DerivedDataCache", "category.unreal_cache"),
 )
 
 
