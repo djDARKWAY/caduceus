@@ -3,7 +3,7 @@ Ações
 
 Os tipos comuns a todas as ações da Manutenção manual: o passo em curso (para a barra de
 progresso), o resultado (com uma linha por categoria) e a forma de uma ação. Cada ação vive num
-ficheiro de `maintenance/free_space/`, `maintenance/memory/` ou `maintenance/apps/`.
+ficheiro de `maintenance/free_space/`, `maintenance/performance/` ou `maintenance/apps/`.
 """
 
 from collections.abc import Callable, Mapping
@@ -36,6 +36,7 @@ class Outcome:
     rows: tuple[Row, ...] = ()
     quit_after: bool = False  # a ação pede que o Caduceus feche (por exemplo, ao reabrir)
     notice: str | None = None  # a chave de um aviso a mostrar em vez do resultado
+    freed_key: str = "result.freed"
 
     @property
     def items_counted(self) -> bool:

@@ -42,6 +42,7 @@ from caduceus.controllers.navigation import (
     display_order,
     has_state_column,
     is_blocked,
+    skipped_in_batch,
 )
 from caduceus.maintenance.actions import Outcome, Step
 from caduceus.settings import Settings
@@ -125,11 +126,16 @@ def _column_width(title: str, width: int) -> int:
     return max(width, len(title) + _SORT_MARK_WIDTH)
 
 
-def _is_on(item: MenuItem, settings: Settings) -> bool | None:
-    """O estado ligado/desligado que a opção mostra, ou None se a opção não tem estado."""
+def _item_state(item: MenuItem, settings: Settings) -> bool | str | None:
     if item.setting is not None:
         return bool(getattr(settings, item.setting))
     return item.state() if item.state is not None else None
+
+
+def _state_text(texts: Texts, value: bool | str) -> tuple[str, str]:
+    if isinstance(value, str):
+        return texts.get(value, value), ACCENT
+    return texts["setting.on" if value else "setting.off"], ACCENT if value else DANGER
 
 
 def _render_option(
@@ -139,13 +145,13 @@ def _render_option(
     if not (blocked or is_selected) and item.choice is not None and not item.choice[1]:
         style = DANGER  # a escolha «desligado» (OFF) a vermelho
     option = Text(f" {item_label(texts, item)} ", style=style)
-    is_on = _is_on(item, settings)
-    if is_on is not None:
-        option.append(
-            texts["setting.on" if is_on else "setting.off"],
-            style=ACCENT if is_on else DANGER,
-        )
+    state = _item_state(item, settings)
+    if state is not None:
+        label, state_style = _state_text(texts, state)
+        option.append(label, style=state_style)
         option.append(" ")
+        if isinstance(state, str):
+            option.truncate(MENU_WIDTH, overflow="ellipsis")
     option.pad_right(max(0, MENU_WIDTH - option.cell_len))
     return option
 
@@ -219,7 +225,7 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
             total = sum(
                 navigation.estimates.get(other.label_key) or 0
                 for other in items
-                if not is_blocked(navigation, other) and not (item.skips_slow and other.slow)
+                if not is_blocked(navigation, other) and not skipped_in_batch(item, other)
             )
             if position > visible.start and not items[order[position - 1]].runs_all:
                 table.add_section()
@@ -239,12 +245,12 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
     return table
 
 
-def _cell_text(texts: Texts, cell: int | str | None) -> str:
+def _cell_text(texts: Texts, cell: int | str | None, estimated: bool) -> str:
     if isinstance(cell, str):
         return texts.get(
             cell, cell
         )  # sem texto traduzido, o próprio texto (por exemplo, uma versão)
-    return format_estimate(cell)
+    return format_estimate(cell) if estimated or cell is None else format_size(cell)
 
 
 def _visible_rows(count: int, index: int) -> range:
@@ -254,11 +260,11 @@ def _visible_rows(count: int, index: int) -> range:
 
 
 def _state_cell(texts: Texts, item: MenuItem, settings: Settings, selected: bool) -> Text:
-    is_on = _is_on(item, settings)
-    state = Text("" if is_on is None else texts["setting.on" if is_on else "setting.off"])
-    if not selected and is_on is not None:
-        state.stylize(ACCENT if is_on else DANGER)
-    return state
+    state = _item_state(item, settings)
+    if state is None:
+        return Text()
+    label, style = _state_text(texts, state)
+    return Text(label, style="" if selected else style)
 
 
 def _add_cells_columns(table: Table, texts: Texts, navigation: Navigation) -> None:
@@ -270,7 +276,7 @@ def _add_cells_columns(table: Table, texts: Texts, navigation: Navigation) -> No
     base_width = menu.name_width or _NAME_WIDTH
     name_width = base_width if has_state else base_width + state_width + _COLUMN_PADDING
     table.add_column(
-        _column_title(texts["table.program"], 0, sort),
+        _column_title(texts[menu.name_key], 0, sort),
         no_wrap=True,
         overflow="ellipsis",
         width=name_width,
@@ -307,7 +313,7 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
         item = menu.items[index]
         selected = index == navigation.index
         state = [_state_cell(texts, item, navigation.settings, selected)] if has_state else []
-        cells = [_cell_text(texts, cell) for cell in item.cells]
+        cells = [_cell_text(texts, cell, menu.cells_are_estimates) for cell in item.cells]
         cells += [""] * (len(menu.columns) - len(cells))
         if item.runs_all:
             if position > 0 and not menu.items[order[position - 1]].runs_all:
@@ -432,7 +438,7 @@ def _render_breakdown(texts: Texts, outcome: Outcome) -> RenderableType:
     table = Table(box=box.SIMPLE_HEAD, header_style=f"bold {ACCENT}", pad_edge=False)
     table.add_column(texts["result.category"], no_wrap=True)
     table.add_column(texts["result.items"], justify="right")
-    table.add_column(texts["result.freed"], justify="right")
+    table.add_column(texts[outcome.freed_key], justify="right")
     for row in outcome.rows:
         label = Text(texts[row.label_key].format(**row.values))
         if row.needs_admin:
@@ -517,7 +523,10 @@ def _render_confirmation(
     skipped = [
         Text(f"  {BULLET} {item_label(texts, other)}", style=WARNING)
         for other in navigation.menu.items
-        if item.runs_all and is_blocked(navigation, other) and not (item.skips_slow and other.slow)
+        if item.runs_all
+        and other.action is not None
+        and is_blocked(navigation, other)
+        and not skipped_in_batch(item, other)
     ]
     if skipped:
         warning += [Text(""), Text(texts["confirm.skipped"], style=WARNING)]

@@ -13,6 +13,8 @@ from caduceus.controllers.menus import MAIN_MENU, PERFORMANCE_MENU, SETTINGS_MEN
 from caduceus.controllers.navigation import Navigation, press
 from caduceus.controllers.tables import programs_menu, startup_menu
 from caduceus.maintenance.apps.installed_programs import InstalledProgram
+from caduceus.maintenance.performance import power_plan
+from caduceus.maintenance.performance.optimize_drives import Drive
 from caduceus.maintenance.performance.startup_programs import StartupEntry, StartupSource
 from caduceus.settings import Settings
 from caduceus.ui import render
@@ -99,6 +101,31 @@ def screen_lines(navigation: Navigation, height: int = WINDOW_LINES) -> list[str
     console = Console(width=120, height=height, record=True, file=io.StringIO())
     console.print(render.render_screen(load_texts("en"), navigation))
     return console.export_text().splitlines()
+
+
+def test_the_performance_menu_shows_the_active_plan_beside_power_plan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(power_plan, "_active_scheme", lambda: power_plan._BALANCED)
+    navigation = Navigation(menus=(PERFORMANCE_MENU,))
+
+    assert any("Power plan Balanced" in line for line in screen_lines(navigation))
+
+
+def test_the_drive_table_shows_media_type_size_and_free_space(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    drive = Drive("C", "Windows", "drive0", "SSD", 2 * 1024**3, 1024**3)
+    monkeypatch.setattr(tables, "list_drives", lambda: [drive])
+    navigation = Navigation(menus=(tables.drives_menu(),))
+
+    lines = screen_lines(navigation)
+
+    assert any(
+        all(heading in line for heading in ("Drive", "Type", "Size", "Free")) for line in lines
+    )
+    row = next(line for line in lines if "C: Windows" in line and "2.0 GB" in line)
+    assert "SSD" in row and "1.0 GB" in row and "~" not in row
 
 
 def test_restart_as_administrator_is_shown_only_without_administrator() -> None:

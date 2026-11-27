@@ -32,6 +32,8 @@ class Location:
     pattern: str = "*"
     min_age_hours: int = CLEANUP_MIN_AGE_HOURS
     needs_admin: bool = False
+    files_only: bool = False
+    keep: tuple[str, ...] = ()  # nomes que nunca se apagam (sem distinguir maiúsculas)
 
 
 @dataclass(frozen=True)
@@ -184,12 +186,10 @@ def estimate_locations(locations: Sequence[Location]) -> int:
         cutoff = _cutoff(location, now)
         for root in _roots(location):
             try:
-                if _is_behind_a_link(root):
-                    continue
-                entries = [e for e in root.iterdir() if fnmatch(e.name, location.pattern)]
-            except OSError:
+                entries = _entries_to_clean(location, root, admin)
+            except (_NeedsAdministrator, _Refused):
                 continue
-            total += sum(folder_size(entry, cutoff) for entry in entries)
+            total += sum(folder_size(entry, cutoff) for entry in entries or ())
     return total
 
 
@@ -211,7 +211,15 @@ def _entries_to_clean(location: Location, root: Path, admin: bool) -> list[Path]
             raise _NeedsAdministrator
         if _is_behind_a_link(root):
             raise _Refused
-        return [entry for entry in root.iterdir() if fnmatch(entry.name, location.pattern)]
+        kept = {name.casefold() for name in location.keep}
+        with os.scandir(root) as listing:
+            return [
+                Path(entry.path)
+                for entry in listing
+                if fnmatch(entry.name, location.pattern)
+                and entry.name.casefold() not in kept
+                and (not location.files_only or entry.is_file(follow_symlinks=False))
+            ]
     except PermissionError as error:
         # Sem administrador, até ver se a pasta existe pode ser negado
         raise (_NeedsAdministrator if needs_admin else _Refused) from error

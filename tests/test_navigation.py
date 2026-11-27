@@ -308,6 +308,59 @@ def test_confirming_run_all_starts_one_combined_action() -> None:
     assert not navigation.confirming
 
 
+@pytest.mark.parametrize(
+    ("batch", "safe_mode", "expected"),
+    [
+        ("cleanup.fast", False, {"cleanup.crash_dumps", "cleanup.recent_history"}),
+        (
+            "cleanup.all",
+            True,
+            {"cleanup.icon_cache", "cleanup.crash_dumps", "cleanup.recent_history"},
+        ),
+        (
+            "cleanup.all",
+            False,
+            {
+                "cleanup.icon_cache",
+                "cleanup.install_leftovers",
+                "cleanup.crash_dumps",
+                "cleanup.recent_history",
+            },
+        ),
+    ],
+)
+def test_cleanup_batches_include_the_new_actions_allowed_in_each_mode(
+    batch: str, safe_mode: bool, expected: set[str]
+) -> None:
+    added = {
+        "cleanup.icon_cache",
+        "cleanup.install_leftovers",
+        "cleanup.crash_dumps",
+        "cleanup.recent_history",
+    }
+
+    def cleanup(_report: Report) -> Outcome:
+        return Outcome(0, 0)
+
+    items = tuple(
+        replace(item, action=cleanup) if item.label_key in added else item
+        for item in CLEANUP_MENU.items
+        if item.label_key in added or item.label_key == batch
+    )
+    navigation = Navigation(
+        menus=(Menu(CLEANUP_MENU.title_key, items),),
+        selected=(len(items) - 1,),
+        settings=Settings(safe_mode=safe_mode),
+    )
+
+    running = press(navigation, Key.ENTER)
+    if running.confirming:
+        running = press(running, Key.ENTER)
+
+    assert running.running is not None
+    assert {row.label_key for row in running.running(lambda _: None).rows} == expected
+
+
 def test_fast_run_all_skips_the_slow_cleanups() -> None:
     ran: list[str] = []
 

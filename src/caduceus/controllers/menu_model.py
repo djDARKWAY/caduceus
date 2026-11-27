@@ -26,13 +26,12 @@ class AdminNeed(Enum):
 # `setting`, o nome da definição cujo estado a opção mostra (e que o seu submenu muda); `choice`, a
 # definição e o valor que a opção grava ao ser escolhida (volta ao menu anterior);
 # `runs_all`, a opção que corre todas as
-# ações do menu que o Modo seguro deixa correr; `state`, o estado atual (ligado ou desligado) que a
-# ação inverte, mostrado ao lado do nome. O aviso de `confirm_key` só aparece quando o estado é
-# ligado (a direção que pode ter consequências). `label`, `description_values` e `cells` são para as
+# ações do menu que o Modo seguro deixa correr; `state`, o estado atual, mostrado ao lado do
+# nome (ligado, desligado ou um texto). `label`, `description_values` e `cells` são para as
 # opções que se criam ao abrir o menu: o nome (em vez de `label_key`), os valores que completam o
 # texto da descrição e as colunas da tabela (um número é uma memória em bytes, um texto é a chave
 # de um texto traduzido, e None é «não se sabe»); `submenu_loader`, o que cria o submenu ao entrar
-# nele; `instant`, as ações tão rápidas que só mostram o resultado se algo correr mal;
+# nele; `instant`, as ações que voltam logo ao menu quando não têm resultados a mostrar;
 # `refreshes_menu`, as ações que mudam a lista (por exemplo, desinstalar), que volta a criar-se
 # quando o utilizador sai do resultado.
 @dataclass(frozen=True)
@@ -49,9 +48,9 @@ class MenuItem:
     setting: str | None = None
     choice: tuple[str, bool] | None = None
     runs_all: bool = False
-    skips_slow: bool = False  # `runs_all` sem as ações marcadas como lentas
+    skips_slow: bool = False  # `runs_all` sem as ações lentas ou arriscadas
     slow: bool = False  # ação demorada, que a versão rápida de `runs_all` salta
-    state: Callable[[], bool] | None = None  # o estado ligado/desligado, mostrado ao lado do nome
+    state: Callable[[], bool | str | None] | None = None
     only_without_admin: bool = False  # só faz sentido sem administrador (fica esbatida com ele)
     label: str | None = None
     description_values: Mapping[str, str] = field(default_factory=dict)
@@ -69,6 +68,8 @@ class Menu:
     items: tuple[MenuItem, ...]
     columns: tuple[tuple[str, int], ...] = ()
     name_width: int | None = None
+    name_key: str = "table.program"
+    cells_are_estimates: bool = True
 
 
 def item_label(texts: Mapping[str, str], item: MenuItem) -> str:

@@ -2,8 +2,8 @@
 Tabelas
 
 Os menus que se criam ao abrir, a partir do que o Windows tem agora: os programas de arranque, as
-tarefas agendadas, os programas instalados, as atualizações e as aplicações da Store. Cada um
-devolve um `Menu` com uma opção por linha da tabela.
+tarefas agendadas, as unidades, os programas instalados, as atualizações e as aplicações da Store.
+Cada um devolve um `Menu` com uma opção por linha da tabela.
 """
 
 from caduceus.controllers.menu_model import AdminNeed, Menu, MenuItem
@@ -25,6 +25,7 @@ from caduceus.maintenance.apps.winget_upgrades import (
     list_upgradable,
     update_apps,
 )
+from caduceus.maintenance.performance.optimize_drives import Drive, list_drives, optimize_drive
 from caduceus.maintenance.performance.scheduled_tasks import (
     TaskEntry,
     list_scheduled_tasks,
@@ -134,6 +135,42 @@ def tasks_menu() -> Menu:
             ("performance.startup.column.impact", 6),
             ("performance.tasks.column.trigger", 7),
         ),
+    )
+
+
+def _drive_item(drive: Drive) -> MenuItem:
+    media_key = f"performance.optimize_drives.media.{drive.media or 'unknown'}"
+    return MenuItem(
+        f"drive:{drive.letter}",
+        label=drive.label,
+        action=optimize_drive(drive) if drive.media is not None else None,
+        description_key=f"{media_key}.description",
+        description_values={"drive": drive.label},
+        admin=AdminNeed.ALL,
+        cells=(media_key, drive.size_bytes, drive.free_bytes),
+        slow=True,
+        refreshes_menu=True,
+    )
+
+
+def drives_menu() -> Menu:
+    drives = list_drives()
+    items = tuple(_drive_item(drive) for drive in drives or ())
+    empty_key = (
+        "performance.optimize_drives.failed"
+        if drives is None
+        else "performance.optimize_drives.none"
+    )
+    return Menu(
+        "performance.optimize_drives.title",
+        items or (MenuItem(empty_key, description_key=f"{empty_key}.description"),),
+        (
+            ("performance.optimize_drives.column.type", 8),
+            ("performance.optimize_drives.column.size", 9),
+            ("performance.optimize_drives.column.free", 9),
+        ),
+        name_key="performance.optimize_drives.column.name",
+        cells_are_estimates=False,
     )
 
 

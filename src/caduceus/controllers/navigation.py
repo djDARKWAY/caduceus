@@ -97,7 +97,10 @@ def _sort_value(navigation: Navigation, item: MenuItem, column: int) -> int | st
         return navigation.estimates.get(item.label_key)
     if has_state_column(menu):
         if column == 1:
-            return item.state() if item.state is not None else False
+            state = item.state() if item.state is not None else False
+            if isinstance(state, str):
+                return navigation.texts.get(state, state).casefold()
+            return str(int(state)) if state is not None else None
         column -= 1
     cell = item.cells[column - 1] if column - 1 < len(item.cells) else None
     if isinstance(cell, str):
@@ -149,6 +152,10 @@ def is_blocked(navigation: Navigation, item: MenuItem) -> bool:
     )
 
 
+def skipped_in_batch(batch: MenuItem, item: MenuItem) -> bool:
+    return batch.skips_slow and (item.slow or item.risky)
+
+
 def _action_for(navigation: Navigation, item: MenuItem) -> Action | None:
     """A ação da opção; a que corre tudo junta as do menu que o Modo seguro deixa correr."""
     if not item.runs_all or item.action is not None:
@@ -159,7 +166,7 @@ def _action_for(navigation: Navigation, item: MenuItem) -> Action | None:
             for other in navigation.menu.items
             if other.action is not None
             and not is_blocked(navigation, other)
-            and not (item.skips_slow and other.slow)
+            and not skipped_in_batch(item, other)
         ]
     )
 
@@ -322,6 +329,6 @@ def complete(navigation: Navigation, outcome: Outcome) -> Navigation:
     if outcome.notice is not None:
         return replace(navigation, running=None, notice=outcome.notice)
     went_wrong = bool(outcome.failures or outcome.admin_required)
-    if navigation.item.instant and not went_wrong:
+    if navigation.item.instant and not (went_wrong or outcome.rows):
         return replace(navigation, running=None)
     return replace(navigation, running=None, outcome=outcome)

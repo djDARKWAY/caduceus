@@ -8,6 +8,7 @@ menus que se criam ao abrir (as tabelas) estão em `tables.py`.
 
 from caduceus.controllers.menu_model import AdminNeed, Menu, MenuItem
 from caduceus.controllers.tables import (
+    drives_menu,
     programs_menu,
     repair_store_menu,
     reset_store_menu,
@@ -23,6 +24,7 @@ from caduceus.maintenance.free_space.browser_caches import (
     estimate_browser_caches,
 )
 from caduceus.maintenance.free_space.components import clean_components
+from caduceus.maintenance.free_space.crash_dumps import clean_crash_dumps, estimate_crash_dumps
 from caduceus.maintenance.free_space.developer_caches import (
     clean_developer_caches,
     estimate_developer_caches,
@@ -33,6 +35,12 @@ from caduceus.maintenance.free_space.hibernation import (
     turn_on_hibernation,
 )
 from caduceus.maintenance.free_space.hidden_junk import clean_hidden_junk, estimate_hidden_junk
+from caduceus.maintenance.free_space.icon_cache import clean_icon_cache, estimate_icon_cache
+from caduceus.maintenance.free_space.install_leftovers import (
+    clean_install_leftovers,
+    estimate_install_leftovers,
+)
+from caduceus.maintenance.free_space.recent_history import clear_recent_history
 from caduceus.maintenance.free_space.recycle_bin import empty_recycle_bin, estimate_recycle_bin
 from caduceus.maintenance.free_space.restore_points import clean_restore_points
 from caduceus.maintenance.free_space.system_caches import (
@@ -42,6 +50,15 @@ from caduceus.maintenance.free_space.system_caches import (
 from caduceus.maintenance.free_space.temp_files import clean_temp_files, estimate_temp_files
 from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, estimate_windows_logs
 from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
+from caduceus.maintenance.performance.free_standby import free_standby_memory
+from caduceus.maintenance.performance.power_plan import (
+    active_plan_name,
+    balanced_is_active,
+    high_performance_is_active,
+    set_balanced,
+    set_high_performance,
+)
+from caduceus.maintenance.performance.restart_explorer import restart_explorer
 
 HIBERNATION_MENU = Menu(
     "cleanup.hibernation.title",
@@ -78,7 +95,6 @@ CLEANUP_MENU = Menu(
             "cleanup.hidden_junk",
             action=clean_hidden_junk,
             description_key="cleanup.hidden_junk.description",
-            admin=AdminNeed.SOME,
             estimate=estimate_hidden_junk,
         ),
         MenuItem(
@@ -94,6 +110,13 @@ CLEANUP_MENU = Menu(
             description_key="cleanup.system_caches.description",
             admin=AdminNeed.SOME,
             estimate=estimate_system_caches,
+        ),
+        MenuItem(
+            "cleanup.icon_cache",
+            action=clean_icon_cache,
+            description_key="cleanup.icon_cache.description",
+            estimate=estimate_icon_cache,
+            slow=True,
         ),
         MenuItem(
             "cleanup.browser_caches",
@@ -138,6 +161,28 @@ CLEANUP_MENU = Menu(
             estimate=estimate_windows_old,
             slow=True,
         ),
+        MenuItem(
+            "cleanup.install_leftovers",
+            action=clean_install_leftovers,
+            description_key="cleanup.install_leftovers.description",
+            admin=AdminNeed.ALL,
+            risky=True,
+            confirm_key="cleanup.install_leftovers.confirm",
+            estimate=estimate_install_leftovers,
+            slow=True,
+        ),
+        MenuItem(
+            "cleanup.crash_dumps",
+            action=clean_crash_dumps,
+            description_key="cleanup.crash_dumps.description",
+            admin=AdminNeed.ALL,
+            estimate=estimate_crash_dumps,
+        ),
+        MenuItem(
+            "cleanup.recent_history",
+            action=clear_recent_history,
+            description_key="cleanup.recent_history.description",
+        ),
         # A reciclagem fica por último, para esvaziar também o que as limpezas anteriores lá deixem
         MenuItem(
             "cleanup.recycle_bin",
@@ -170,6 +215,26 @@ CLEANUP_MENU = Menu(
     ),
 )
 
+POWER_PLAN_MENU = Menu(
+    "performance.power_plan.title",
+    (
+        MenuItem(
+            "performance.power_plan.balanced",
+            action=set_balanced,
+            state=balanced_is_active,
+            description_key="performance.power_plan.balanced.description",
+            instant=True,
+        ),
+        MenuItem(
+            "performance.power_plan.high",
+            action=set_high_performance,
+            state=high_performance_is_active,
+            description_key="performance.power_plan.high.description",
+            instant=True,
+        ),
+    ),
+)
+
 PERFORMANCE_MENU = Menu(
     "performance.title",
     (
@@ -183,6 +248,32 @@ PERFORMANCE_MENU = Menu(
             submenu_loader=tasks_menu,
             description_key="performance.tasks.description",
             admin=AdminNeed.ALL,
+        ),
+        MenuItem(
+            "performance.power_plan",
+            POWER_PLAN_MENU,
+            state=active_plan_name,
+            description_key="performance.power_plan.description",
+        ),
+        MenuItem(
+            "performance.restart_explorer",
+            action=restart_explorer,
+            description_key="performance.restart_explorer.description",
+            instant=True,
+        ),
+        MenuItem(
+            "performance.free_standby",
+            action=free_standby_memory,
+            description_key="performance.free_standby.description",
+            admin=AdminNeed.ALL,
+            instant=True,
+        ),
+        MenuItem(
+            "performance.optimize_drives",
+            submenu_loader=drives_menu,
+            description_key="performance.optimize_drives.description",
+            admin=AdminNeed.ALL,
+            slow=True,
         ),
     ),
 )
