@@ -15,6 +15,7 @@ import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from caduceus.config import WINGET_TIMEOUT_SECONDS
 from caduceus.maintenance.actions import Action, Outcome, Report, Row
 from caduceus.maintenance.system_tool import run_system_tool
 
@@ -28,7 +29,6 @@ _UPGRADE_ARGUMENTS = (
     "--accept-source-agreements",
     "--id",
 )
-_LIST_TIMEOUT_SECONDS = 120
 _NO_APPLICABLE_UPGRADE = 0x8A15002B  # a aplicação já não tem atualização por fazer
 _HEADER_COLUMN = re.compile(r"\S+(?: \S+)*")  # um título pode ter espaços simples; as colunas, dois
 _SEPARATOR = re.compile(r"-{10,}")
@@ -75,7 +75,7 @@ def list_upgradable() -> list[UpgradableApp]:
         result = subprocess.run(
             [winget, *_LIST_ARGUMENTS],
             capture_output=True,
-            timeout=_LIST_TIMEOUT_SECONDS,
+            timeout=WINGET_TIMEOUT_SECONDS,
             creationflags=subprocess.CREATE_NO_WINDOW,
             check=False,
         )

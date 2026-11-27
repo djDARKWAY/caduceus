@@ -9,22 +9,20 @@ tarefa. As tarefas da Microsoft e do Windows (pasta `\Microsoft`) ficam de fora.
 administrador.
 """
 
-import base64
 import json
 import os
 import subprocess
 from dataclasses import dataclass
 
+from caduceus.config import POWERSHELL_TIMEOUT_SECONDS
 from caduceus.maintenance.actions import Action, Outcome, Report
 from caduceus.maintenance.admin import is_admin
 from caduceus.maintenance.performance.process_memory import memory_by_executable
 from caduceus.maintenance.performance.startup_programs import UPDATER_WORDS, memory_of
+from caduceus.maintenance.powershell import run_powershell
 
-_POWERSHELL = r"%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe"
 _SCHTASKS = r"%WINDIR%\System32\schtasks.exe"
-_TIMEOUT_SECONDS = 60
 _LIST_SCRIPT = """
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $tasks = Get-ScheduledTask | Where-Object { $_.TaskPath -notlike '\\Microsoft\\*' } |
   ForEach-Object {
   $kinds = @($_.Triggers | ForEach-Object { $_.CimClass.CimClassName })
@@ -86,26 +84,8 @@ def parse_tasks(output: str, running: dict[str, int]) -> list[TaskEntry]:
 
 
 def list_scheduled_tasks() -> list[TaskEntry]:
-    script = base64.b64encode(_LIST_SCRIPT.encode("utf-16-le")).decode("ascii")
-    try:
-        result = subprocess.run(
-            [
-                os.path.expandvars(_POWERSHELL),
-                "-NoProfile",
-                "-NonInteractive",
-                "-EncodedCommand",
-                script,
-            ],
-            capture_output=True,
-            timeout=_TIMEOUT_SECONDS,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return []  # sem o PowerShell, o menu mostra que não há tarefas
-    if result.returncode != 0:
-        return []
-    return parse_tasks(result.stdout.decode("utf-8", errors="replace"), memory_by_executable())
+    output = run_powershell(_LIST_SCRIPT)
+    return parse_tasks(output, memory_by_executable()) if output is not None else []
 
 
 def toggle_task(entry: TaskEntry) -> Action:
@@ -119,7 +99,7 @@ def toggle_task(entry: TaskEntry) -> Action:
             result = subprocess.run(
                 [os.path.expandvars(_SCHTASKS), "/Change", "/TN", entry.full_name, switch],
                 capture_output=True,
-                timeout=_TIMEOUT_SECONDS,
+                timeout=POWERSHELL_TIMEOUT_SECONDS,
                 creationflags=subprocess.CREATE_NO_WINDOW,
                 check=False,
             )

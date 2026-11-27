@@ -47,3 +47,9 @@ LOG_MIN_AGE_HOURS     = 24  # registos de diagnóstico do Windows
 # ==============================================================================
 STARTUP_MEDIUM_IMPACT_MB  = 100  # a partir desta memória em uso, o impacto é médio
 STARTUP_HIGH_IMPACT_MB    = 300  # a partir desta memória em uso, o impacto é alto
+
+# ==============================================================================
+# 7. EXTERNAL TOOLS
+# ==============================================================================
+POWERSHELL_TIMEOUT_SECONDS = 60   # tempo máximo de uma consulta ao PowerShell
+WINGET_TIMEOUT_SECONDS     = 120  # tempo máximo da lista de atualizações do winget

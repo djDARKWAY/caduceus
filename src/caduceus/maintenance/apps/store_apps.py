@@ -8,22 +8,16 @@ Repor corre o `Reset-AppxPackage`, que apaga os dados e as definições locais d
 como acabada de instalar, sem a desinstalar. A lista vem do PowerShell (`Get-AppxPackage`).
 """
 
-import base64
 import json
-import os
 import re
-import subprocess
 from dataclasses import dataclass
 
 from caduceus.maintenance.actions import Action, Outcome, Report, Row
+from caduceus.maintenance.powershell import POWERSHELL_FROM_SYSTEM32, run_powershell
 from caduceus.maintenance.system_tool import run_system_tool
 
-_POWERSHELL = r"WindowsPowerShell\v1.0\powershell.exe"
-_POWERSHELL_PATH = r"%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe"
-_TIMEOUT_SECONDS = 60
 _FULL_NAME = re.compile(r"[\w.~-]+")  # os nomes completos dos pacotes só têm estes caracteres
 _LIST_SCRIPT = """
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $apps = Get-AppxPackage -PackageTypeFilter Main |
   Where-Object { -not $_.IsFramework -and $_.SignatureKind -ne 'System' -and $_.InstallLocation } |
   ForEach-Object {
@@ -68,26 +62,8 @@ def parse_store_apps(output: str) -> list[StoreApp]:
 
 
 def list_store_apps() -> list[StoreApp]:
-    script = base64.b64encode(_LIST_SCRIPT.encode("utf-16-le")).decode("ascii")
-    try:
-        result = subprocess.run(
-            [
-                os.path.expandvars(_POWERSHELL_PATH),
-                "-NoProfile",
-                "-NonInteractive",
-                "-EncodedCommand",
-                script,
-            ],
-            capture_output=True,
-            timeout=_TIMEOUT_SECONDS,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return []  # sem o PowerShell, o menu mostra que não há aplicações
-    if result.returncode != 0:
-        return []
-    return parse_store_apps(result.stdout.decode("utf-8", errors="replace"))
+    output = run_powershell(_LIST_SCRIPT)
+    return parse_store_apps(output) if output is not None else []
 
 
 def _package_action(app: StoreApp, script: str, step_key: str, row_key: str) -> Action:
@@ -98,7 +74,9 @@ def _package_action(app: StoreApp, script: str, step_key: str, row_key: str) -> 
             "-Command",
             script.format(full_name=app.full_name),
         ]
-        done = run_system_tool(_POWERSHELL, command, report, step_key, values={"name": app.name})
+        done = run_system_tool(
+            POWERSHELL_FROM_SYSTEM32, command, report, step_key, values={"name": app.name}
+        )
         if not done:
             return Outcome(0, 0, failures=(app.name,))
         return Outcome(1, 0, rows=(Row(row_key, 1, 0, {"name": app.name}),))
