@@ -41,3 +41,10 @@ SETTINGS_FILE   = "settings.json"  # ficheiro das definições guardadas
 # ==============================================================================
 CLEANUP_MIN_AGE_HOURS = 1   # idade mínima dos ficheiros removidos pelo motor de limpeza
 LOG_MIN_AGE_HOURS     = 24  # registos de diagnóstico do Windows
+
+# ==============================================================================
+# 6. STARTUP
+# ==============================================================================
+STARTUP_VISIBLE_ROWS      = 10   # programas de arranque visíveis de cada vez na lista
+STARTUP_MEDIUM_IMPACT_MB  = 100  # a partir desta memória em uso, o impacto é médio
+STARTUP_HIGH_IMPACT_MB    = 300  # a partir desta memória em uso, o impacto é alto
