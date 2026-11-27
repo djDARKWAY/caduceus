@@ -1,11 +1,8 @@
 """
 Interface
 
-Menus interativos do terminal, navegados com as setas.
+Só desenho: o cabeçalho, o menu atual, o aviso e a linha de teclas de controlo.
 """
-
-import msvcrt
-from enum import Enum
 
 from rich.console import Console, Group, RenderableType
 from rich.live import Live
@@ -15,29 +12,12 @@ from rich.text import Text
 
 from caduceus import __version__
 from caduceus.branding import BANNER_LINES, BANNER_WIDTH, ICON_LINES
-from caduceus.config import ACCENT_STYLE, SELECTED_STYLE
+from caduceus.config import ACCENT_STYLE, DETAIL_GAP, DETAIL_STYLE, DETAIL_WIDTH, SELECTED_STYLE
 from caduceus.i18n import Texts
+from caduceus.menus import Menu, MenuItem
+from caduceus.navigation import Navigation
 
 VERSION_LABEL = f"v{__version__}"
-
-
-class Key(Enum):
-    UP = "up"
-    DOWN = "down"
-    ENTER = "enter"
-    BACK = "back"
-    QUIT = "quit"
-    OTHER = "other"
-
-
-class MainMenuOption(Enum):
-    """Opções do menu principal. O valor é a chave do texto no ficheiro de idioma."""
-
-    SCAN = "menu.scan"
-    MAINTENANCE = "menu.maintenance"
-    SETTINGS = "menu.settings"
-    EXIT = "menu.exit"
-
 
 HINTS = (
     ("↑", "hint.up"),
@@ -47,42 +27,7 @@ HINTS = (
     ("Q", "hint.quit"),
 )
 
-_EXTENDED_KEYS = {"H": Key.UP, "P": Key.DOWN}
-_CHAR_KEYS = {"\r": Key.ENTER, "\x08": Key.BACK, "q": Key.QUIT, "Q": Key.QUIT, "\x03": Key.QUIT}
-
-
-def read_key() -> Key:
-    """Espera por uma tecla e devolve a que interessa ao menu (as outras dão `Key.OTHER`).
-
-    Q e Ctrl+C contam ambos como `Key.QUIT`.
-    """
-    char = msvcrt.getwch()
-    if char in ("\x00", "\xe0"):
-        return _EXTENDED_KEYS.get(msvcrt.getwch(), Key.OTHER)
-    return _CHAR_KEYS.get(char, Key.OTHER)
-
-
-def wait_for_key() -> None:
-    """Espera por qualquer tecla."""
-    read_key()
-
-
-def next_index(index: int, key: Key, count: int) -> int:
-    """Devolve a posição seguinte do menu, dando a volta nas pontas.
-
-    Args:
-        index: posição atual.
-        key: tecla premida.
-        count: número de opções do menu.
-
-    Returns:
-        A nova posição (a mesma, se a tecla não for uma seta).
-    """
-    if key is Key.UP:
-        return (index - 1) % count
-    if key is Key.DOWN:
-        return (index + 1) % count
-    return index
+_BODY_PADDING = (1, 0, 0, 2)
 
 
 def _render_header(texts: Texts) -> RenderableType:
@@ -104,13 +49,28 @@ def _render_option(label: str, is_selected: bool) -> Text:
     return Text(f" {label} ", style=SELECTED_STYLE if is_selected else "")
 
 
-def _render_menu(texts: Texts, selected: MainMenuOption) -> RenderableType:
-    lines = [Text(texts["menu.title"], style=f"bold {ACCENT_STYLE}")]
-    for option in MainMenuOption:
-        if option is MainMenuOption.EXIT:
-            lines.append(Text(""))
-        lines.append(_render_option(texts[option.value], option is selected))
-    return Padding(Group(*lines), (1, 0, 0, 2))
+def _render_detail(texts: Texts, item: MenuItem) -> RenderableType:
+    if item.description_key is None:
+        return Text("")
+    # A linha em branco alinha a descrição com a primeira opção, por baixo do título
+    return Group(Text(""), Text(texts[item.description_key], style=DETAIL_STYLE))
+
+
+def _render_menu(texts: Texts, menu: Menu, selected_index: int) -> RenderableType:
+    options = [Text(texts[menu.title_key], style=f"bold {ACCENT_STYLE}")]
+    for position, item in enumerate(menu.items):
+        if item.quits:
+            options.append(Text(""))
+        options.append(_render_option(texts[item.label_key], position == selected_index))
+    layout = Table.grid(padding=(0, 0, 0, DETAIL_GAP))
+    layout.add_column(no_wrap=True)
+    layout.add_column(max_width=DETAIL_WIDTH)
+    layout.add_row(Group(*options), _render_detail(texts, menu.items[selected_index]))
+    return Padding(layout, _BODY_PADDING)
+
+
+def _render_notice(texts: Texts) -> RenderableType:
+    return Padding(Text(texts["menu.not_available"]), _BODY_PADDING)
 
 
 def _render_hints(texts: Texts) -> RenderableType:
@@ -120,42 +80,47 @@ def _render_hints(texts: Texts) -> RenderableType:
             hints.append("   ")
         hints.append(key_label, style=f"bold {ACCENT_STYLE}")
         hints.append(f" {texts[text_key]}")
-    return Padding(hints, (1, 0, 0, 2))
+    return Padding(hints, _BODY_PADDING)
 
 
-def _render_screen(texts: Texts, body: RenderableType) -> RenderableType:
-    """Moldura comum a todos os ecrãs: cabeçalho, conteúdo e teclas de controlo."""
+def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
+    """Monta o ecrã completo: cabeçalho, conteúdo e teclas de controlo.
+
+    Todos os ecrãs usam esta moldura, por isso o cabeçalho e as teclas aparecem sempre.
+
+    Args:
+        texts: textos da interface no idioma ativo.
+        navigation: estado da navegação a desenhar.
+
+    Returns:
+        O ecrã pronto a mostrar.
+    """
+    if navigation.notice:
+        body = _render_notice(texts)
+    else:
+        body = _render_menu(texts, navigation.menu, navigation.index)
     return Group(_render_header(texts), body, _render_hints(texts))
 
 
-def render_main_menu(texts: Texts, selected: MainMenuOption) -> RenderableType:
-    """Monta o ecrã do menu principal, com uma opção selecionada."""
-    return _render_screen(texts, _render_menu(texts, selected))
-
-
-def run_main_menu(console: Console, texts: Texts) -> MainMenuOption:
-    """Mostra o menu principal e espera até o utilizador escolher uma opção.
+def open_display(console: Console, texts: Texts, navigation: Navigation) -> Live:
+    """Abre o ecrã do Caduceus (num ecrã alternativo, que se fecha ao sair).
 
     Args:
-        console: consola onde o menu é desenhado.
+        console: consola onde desenhar.
         texts: textos da interface no idioma ativo.
+        navigation: estado inicial.
 
     Returns:
-        A opção escolhida. Q e Ctrl+C contam como `MainMenuOption.EXIT`.
+        O ecrã vivo, para usar com `with` e atualizar com `show`.
     """
-    options = list(MainMenuOption)
-    index = 0
-    with Live(
-        render_main_menu(texts, options[index]),
+    return Live(
+        render_screen(texts, navigation),
         console=console,
         screen=True,
         auto_refresh=False,
-    ) as live:
-        while True:
-            key = read_key()
-            if key is Key.ENTER:
-                return options[index]
-            if key is Key.QUIT:
-                return MainMenuOption.EXIT
-            index = next_index(index, key, len(options))
-            live.update(render_main_menu(texts, options[index]), refresh=True)
+    )
+
+
+def show(display: Live, texts: Texts, navigation: Navigation) -> None:
+    """Redesenha o ecrã aberto com o estado de navegação indicado."""
+    display.update(render_screen(texts, navigation), refresh=True)

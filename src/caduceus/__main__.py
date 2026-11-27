@@ -1,29 +1,24 @@
 """
 Caduceus
 
-Ponto de entrada (`python -m caduceus`): mostra o menu principal até o utilizador sair.
+Ponto de entrada (`python -m caduceus`): limpa a consola e corre a aplicação.
 """
 
 import os
 
 from rich.console import Console
 
+from caduceus.app import run
 from caduceus.config import DEFAULT_LANGUAGE
 from caduceus.i18n import load_texts
-from caduceus.ui import MainMenuOption, run_main_menu, wait_for_key
+from caduceus.window import fix_console_size
 
 
 def main() -> None:
-    """Limpa a consola e corre o menu principal.
-
-    As opções ainda sem ecrã mostram um aviso e voltam ao menu.
-    """
+    """Fixa o tamanho da consola, limpa-a e corre o Caduceus no idioma por defeito."""
+    fix_console_size()
     os.system("cls")
-    console = Console()
-    texts = load_texts(DEFAULT_LANGUAGE)
-    while run_main_menu(console, texts) is not MainMenuOption.EXIT:
-        console.print(texts["menu.not_available"])
-        wait_for_key()
+    run(Console(), load_texts(DEFAULT_LANGUAGE))
 
 
 if __name__ == "__main__":

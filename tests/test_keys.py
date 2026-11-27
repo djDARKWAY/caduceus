@@ -3,31 +3,13 @@ from collections.abc import Iterator
 
 import pytest
 
-from caduceus.ui import Key, next_index, read_key
+from caduceus.keys import Key, read_key
 
 
 def press(monkeypatch: pytest.MonkeyPatch, *chars: str) -> Key:
     typed: Iterator[str] = iter(chars)
     monkeypatch.setattr(msvcrt, "getwch", lambda: next(typed))
     return read_key()
-
-
-def test_down_on_the_last_option_goes_to_the_first() -> None:
-    assert next_index(3, Key.DOWN, 4) == 0
-
-
-def test_up_on_the_first_option_goes_to_the_last() -> None:
-    assert next_index(0, Key.UP, 4) == 3
-
-
-def test_arrows_move_one_option_at_a_time() -> None:
-    assert next_index(1, Key.DOWN, 4) == 2
-    assert next_index(2, Key.UP, 4) == 1
-
-
-def test_other_keys_keep_the_selected_option() -> None:
-    assert next_index(2, Key.OTHER, 4) == 2
-    assert next_index(2, Key.BACK, 4) == 2
 
 
 def test_arrow_keys_are_read_as_up_and_down(monkeypatch: pytest.MonkeyPatch) -> None:
