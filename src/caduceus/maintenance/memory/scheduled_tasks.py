@@ -5,8 +5,8 @@ Lista as tarefas do Agendador de Tarefas do Windows que correm quando o Windows 
 utilizador inicia sessão, e deixa desligá-las e ligá-las outra vez. É por aqui que arrancam muitos
 atualizadores e programas que não aparecem nos programas de arranque. A lista vem do PowerShell
 (`Get-ScheduledTask`), e ligar ou desligar faz-se com o `schtasks /Change`. Desligar não apaga a
-tarefa. As tarefas da Microsoft e do Windows (pasta `\Microsoft`) ficam de fora. As tarefas do
-próprio utilizador mudam-se sem administrador; as outras podem exigi-lo.
+tarefa. As tarefas da Microsoft e do Windows (pasta `\Microsoft`) ficam de fora. Exige
+administrador.
 """
 
 import base64
@@ -112,6 +112,8 @@ def toggle_task(entry: TaskEntry) -> Action:
     """A ação que liga a tarefa se estiver desligada e a desliga se estiver ligada."""
 
     def toggle(_report: Report) -> Outcome:
+        if not is_admin():
+            return Outcome(0, 0, admin_required=(entry.name,))
         switch = "/DISABLE" if entry.enabled else "/ENABLE"
         try:
             result = subprocess.run(
@@ -124,10 +126,6 @@ def toggle_task(entry: TaskEntry) -> Action:
         except (OSError, subprocess.TimeoutExpired):
             return Outcome(0, 0, failures=(entry.name,))
         if result.returncode != 0:
-            # Sem administrador, o mais provável é o Windows recusar uma tarefa que não é do
-            # utilizador (as do próprio utilizador não precisam dele)
-            if not is_admin():
-                return Outcome(0, 0, admin_required=(entry.name,))
             return Outcome(0, 0, failures=(entry.name,))
         entry.enabled = not entry.enabled
         return Outcome(0, 0)

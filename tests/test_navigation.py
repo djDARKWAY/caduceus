@@ -481,3 +481,14 @@ def test_when_the_user_declines_the_windows_prompt_a_notice_is_shown() -> None:
 
     assert not done.finished
     assert done.notice == "notice.restart_cancelled"
+
+
+def test_without_administrator_the_scheduled_tasks_cannot_even_be_opened() -> None:
+    position = next(
+        i for i, item in enumerate(MEMORY_MENU.items) if item.label_key == "memory.tasks"
+    )
+    navigation = Navigation(
+        menus=(MAIN_MENU, MEMORY_MENU), selected=(0, position), administrator=False
+    )
+
+    assert press(navigation, Key.ENTER) == navigation

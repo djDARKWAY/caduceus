@@ -56,30 +56,20 @@ def test_only_updater_tasks_can_be_switched_off_with_safe_mode_on() -> None:
     assert make_entry("VpnClientStart").needs_safe_mode_off
 
 
-def test_a_task_that_windows_refuses_without_administrator_asks_for_it_and_keeps_its_state(
+def test_switching_a_task_off_without_administrator_asks_for_it_and_changes_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    def refuse_to_run(*_args: object, **_kwargs: object) -> FakeResult:
+        raise AssertionError("nothing may run without administrator")
+
     monkeypatch.setattr(scheduled_tasks, "is_admin", lambda: False)
-    monkeypatch.setattr(subprocess, "run", lambda *_args, **_kwargs: FakeResult(1))
+    monkeypatch.setattr(subprocess, "run", refuse_to_run)
     entry = make_entry()
 
     outcome = toggle_task(entry)(lambda _: None)
 
     assert outcome.admin_required == ("Example",)
     assert entry.enabled
-
-
-def test_a_task_of_the_user_can_be_switched_off_without_administrator(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(scheduled_tasks, "is_admin", lambda: False)
-    monkeypatch.setattr(subprocess, "run", lambda *_args, **_kwargs: FakeResult(0))
-    entry = make_entry()
-
-    outcome = toggle_task(entry)(lambda _: None)
-
-    assert not outcome.admin_required and not outcome.failures
-    assert not entry.enabled
 
 
 def test_switching_a_task_off_disables_it_and_switching_it_on_enables_it(
