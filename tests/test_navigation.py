@@ -7,7 +7,7 @@ from caduceus.controllers.menus import (
     CLEANUP_MENU,
     MAIN_MENU,
     MAINTENANCE_MENU,
-    MEMORY_MENU,
+    PERFORMANCE_MENU,
     SAFE_MODE_MENU,
     SETTINGS_MENU,
     AdminNeed,
@@ -34,7 +34,9 @@ RECYCLE_BIN_OPTION = next(
     index for index, item in enumerate(CLEANUP_MENU.items) if item.action is empty_recycle_bin
 )
 HIBERNATION_OPTION = next(
-    index for index, item in enumerate(MEMORY_MENU.items) if item.label_key == "memory.hibernation"
+    index
+    for index, item in enumerate(CLEANUP_MENU.items)
+    if item.label_key == "cleanup.hibernation"
 )
 RISKY_OPTIONS = {index for index, item in enumerate(CLEANUP_MENU.items) if item.risky}
 
@@ -344,12 +346,12 @@ def test_after_run_all_every_estimate_is_calculated_again() -> None:
 
 def open_hibernation(safe_mode: bool = False, administrator: bool = True) -> Navigation:
     navigation = Navigation(
-        menus=(MAIN_MENU, MEMORY_MENU),
+        menus=(MAIN_MENU, CLEANUP_MENU),
         selected=(0, HIBERNATION_OPTION),
         settings=Settings(safe_mode=safe_mode),
         administrator=administrator,
     )
-    assert navigation.item.label_key == "memory.hibernation"
+    assert navigation.item.label_key == "cleanup.hibernation"
     return press(navigation, Key.ENTER)
 
 
@@ -357,8 +359,8 @@ def test_hibernation_opens_a_submenu_with_off_and_on() -> None:
     navigation = open_hibernation()
 
     assert [item.label_key for item in navigation.menu.items] == [
-        "memory.hibernation.off",
-        "memory.hibernation.on",
+        "cleanup.hibernation.off",
+        "cleanup.hibernation.on",
     ]
 
 
@@ -375,7 +377,7 @@ def test_turning_hibernation_on_runs_straight_away() -> None:
 
 def test_safe_mode_blocks_hibernation_before_the_submenu() -> None:
     navigation = Navigation(
-        menus=(MAIN_MENU, MEMORY_MENU),
+        menus=(MAIN_MENU, CLEANUP_MENU),
         selected=(0, HIBERNATION_OPTION),
         settings=Settings(safe_mode=True),
     )
@@ -389,7 +391,7 @@ def blocked_by_admin_menu(administrator: bool) -> Navigation:
 
     items = (option("a", None), option("b", AdminNeed.ALL), option("c", AdminNeed.SOME))
     return Navigation(
-        menus=(MAIN_MENU, Menu("memory.title", items)),
+        menus=(MAIN_MENU, Menu("performance.title", items)),
         selected=(0, 0),
         settings=Settings(safe_mode=False),
         administrator=administrator,
@@ -444,7 +446,7 @@ def test_a_menu_created_when_it_is_opened_is_loaded_on_every_entry() -> None:
         loaded.append("loaded")
         return Menu("startup.title", (MenuItem("startup.none"),))
 
-    parent = Menu("memory.title", (MenuItem("memory.startup", submenu_loader=loader),))
+    parent = Menu("performance.title", (MenuItem("performance.startup", submenu_loader=loader),))
     navigation = Navigation(menus=(MAIN_MENU, parent), selected=(0, 0))
 
     opened = press(navigation, Key.ENTER)
@@ -465,8 +467,8 @@ def list_menu(*risky: bool) -> Navigation:
         )
 
     items = tuple(option(index, is_risky) for index, is_risky in enumerate(risky))
-    startup = MenuItem("memory.startup", submenu=Menu("startup.title", items))
-    parent = Menu("memory.title", (startup,))
+    startup = MenuItem("performance.startup", submenu=Menu("startup.title", items))
+    parent = Menu("performance.title", (startup,))
     settings = Settings(safe_mode=True)
     return Navigation(menus=(MAIN_MENU, parent), selected=(0, 0), settings=settings)
 
@@ -553,10 +555,10 @@ def test_after_an_uninstall_the_list_is_created_again_without_the_program() -> N
 
 def test_without_administrator_the_scheduled_tasks_cannot_even_be_opened() -> None:
     position = next(
-        i for i, item in enumerate(MEMORY_MENU.items) if item.label_key == "memory.tasks"
+        i for i, item in enumerate(PERFORMANCE_MENU.items) if item.label_key == "performance.tasks"
     )
     navigation = Navigation(
-        menus=(MAIN_MENU, MEMORY_MENU), selected=(0, position), administrator=False
+        menus=(MAIN_MENU, PERFORMANCE_MENU), selected=(0, position), administrator=False
     )
 
     assert press(navigation, Key.ENTER) == navigation

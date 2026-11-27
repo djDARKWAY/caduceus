@@ -17,8 +17,8 @@ from dataclasses import dataclass
 
 from caduceus.maintenance.actions import Action, Outcome, Report
 from caduceus.maintenance.admin import is_admin
-from caduceus.maintenance.memory.process_memory import memory_by_executable
-from caduceus.maintenance.memory.startup_programs import UPDATER_WORDS, memory_of
+from caduceus.maintenance.performance.process_memory import memory_by_executable
+from caduceus.maintenance.performance.startup_programs import UPDATER_WORDS, memory_of
 
 _POWERSHELL = r"%WINDIR%\System32\WindowsPowerShell\v1.0\powershell.exe"
 _SCHTASKS = r"%WINDIR%\System32\schtasks.exe"

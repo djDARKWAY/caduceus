@@ -28,8 +28,8 @@ from pathlib import Path
 from caduceus.config import STARTUP_HIGH_IMPACT_MB, STARTUP_MEDIUM_IMPACT_MB
 from caduceus.maintenance.actions import Action, Outcome, Report
 from caduceus.maintenance.admin import is_admin
-from caduceus.maintenance.memory.executable_info import describe
-from caduceus.maintenance.memory.process_memory import memory_by_executable
+from caduceus.maintenance.performance.executable_info import describe
+from caduceus.maintenance.performance.process_memory import memory_by_executable
 
 _BYTES_PER_MB = 1024 * 1024
 _SERVICES_HIVE = winreg.HKEY_LOCAL_MACHINE

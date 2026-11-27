@@ -7,8 +7,7 @@ from pathlib import Path
 import pytest
 
 from caduceus.maintenance.actions import Action, Step
-from caduceus.maintenance.free_space import components, restore_points, windows_old
-from caduceus.maintenance.memory import hibernation
+from caduceus.maintenance.free_space import components, hibernation, restore_points, windows_old
 from caduceus.maintenance.system_tool import parse_percent, run_system_tool
 
 

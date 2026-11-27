@@ -10,8 +10,9 @@ from caduceus.controllers import menus
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import (
     MAIN_MENU,
-    MEMORY_MENU,
+    PERFORMANCE_MENU,
     SETTINGS_MENU,
+    Menu,
     MenuItem,
     item_label,
     programs_menu,
@@ -19,7 +20,7 @@ from caduceus.controllers.menus import (
 )
 from caduceus.controllers.navigation import Navigation, press
 from caduceus.maintenance.apps.installed_programs import InstalledProgram
-from caduceus.maintenance.memory.startup_programs import StartupEntry, StartupSource
+from caduceus.maintenance.performance.startup_programs import StartupEntry, StartupSource
 from caduceus.settings import Settings
 from caduceus.ui import render
 from caduceus.ui.i18n import load_texts
@@ -77,7 +78,7 @@ def test_the_estimated_gain_is_shown_as_approximate_or_unknown(
 
 def test_an_option_blocked_by_safe_mode_is_shown_dimmed_even_when_selected() -> None:
     texts = load_texts("en")
-    item = MEMORY_MENU.items[0]
+    item = PERFORMANCE_MENU.items[0]
 
     assert render._render_option(texts, item, True, Settings(), blocked=True).style == "dim"
     assert render._render_option(texts, item, True, Settings()).style == SELECTED_STYLE
@@ -119,6 +120,15 @@ def test_restart_as_administrator_is_shown_only_without_administrator() -> None:
 
     assert "Restart as administrator" in without
     assert "Restart as administrator" not in with_admin
+
+
+def test_a_text_cell_without_a_translation_is_shown_as_it_is() -> None:
+    items = (MenuItem("store.item", label="Some App", cells=("0.20.65.0",)),)
+    table = Menu("store.repair.title", items, (("store.column.version", 14),))
+
+    lines = screen_lines(Navigation(menus=(MAIN_MENU, table), selected=(0, 0)))
+
+    assert any("Some App" in line and "0.20.65.0" in line for line in lines)
 
 
 def test_the_sort_key_appears_in_the_controls_of_the_tables_only() -> None:

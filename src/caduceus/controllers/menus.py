@@ -17,6 +17,14 @@ from caduceus.maintenance.apps.installed_programs import (
     remove_leftover_entry,
     uninstall_program,
 )
+from caduceus.maintenance.apps.open_with import clean_open_with
+from caduceus.maintenance.apps.store_apps import (
+    StoreApp,
+    list_store_apps,
+    repair_store_app,
+    reset_store_app,
+)
+from caduceus.maintenance.apps.winget_upgrades import update_all_apps
 from caduceus.maintenance.free_space.app_caches import clean_app_caches, estimate_app_caches
 from caduceus.maintenance.free_space.browser_caches import (
     clean_browser_caches,
@@ -26,6 +34,11 @@ from caduceus.maintenance.free_space.components import clean_components
 from caduceus.maintenance.free_space.developer_caches import (
     clean_developer_caches,
     estimate_developer_caches,
+)
+from caduceus.maintenance.free_space.hibernation import (
+    is_hibernation_on,
+    turn_off_hibernation,
+    turn_on_hibernation,
 )
 from caduceus.maintenance.free_space.hidden_junk import clean_hidden_junk, estimate_hidden_junk
 from caduceus.maintenance.free_space.recycle_bin import empty_recycle_bin, estimate_recycle_bin
@@ -37,17 +50,12 @@ from caduceus.maintenance.free_space.system_caches import (
 from caduceus.maintenance.free_space.temp_files import clean_temp_files, estimate_temp_files
 from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, estimate_windows_logs
 from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
-from caduceus.maintenance.memory.hibernation import (
-    is_hibernation_on,
-    turn_off_hibernation,
-    turn_on_hibernation,
-)
-from caduceus.maintenance.memory.scheduled_tasks import (
+from caduceus.maintenance.performance.scheduled_tasks import (
     TaskEntry,
     list_scheduled_tasks,
     toggle_task,
 )
-from caduceus.maintenance.memory.startup_programs import (
+from caduceus.maintenance.performance.startup_programs import (
     StartupEntry,
     StartupSource,
     impact_of,
@@ -118,6 +126,27 @@ class Menu:
 def item_label(texts: Mapping[str, str], item: MenuItem) -> str:
     return item.label if item.label is not None else texts.get(item.label_key, item.label_key)
 
+
+HIBERNATION_MENU = Menu(
+    "cleanup.hibernation.title",
+    (
+        MenuItem(
+            "cleanup.hibernation.off",
+            action=turn_off_hibernation,
+            description_key="cleanup.hibernation.off.description",
+            admin=AdminNeed.ALL,
+            risky=True,
+            confirm_key="cleanup.hibernation.confirm",
+        ),
+        MenuItem(
+            "cleanup.hibernation.on",
+            action=turn_on_hibernation,
+            description_key="cleanup.hibernation.on.description",
+            admin=AdminNeed.ALL,
+            risky=True,
+        ),
+    ),
+)
 
 CLEANUP_MENU = Menu(
     "cleanup.title",
@@ -199,6 +228,14 @@ CLEANUP_MENU = Menu(
             action=empty_recycle_bin,
             description_key="cleanup.recycle_bin.description",
             estimate=estimate_recycle_bin,
+        ),
+        MenuItem(
+            "cleanup.hibernation",
+            HIBERNATION_MENU,
+            state=is_hibernation_on,
+            description_key="cleanup.hibernation.description",
+            admin=AdminNeed.ALL,
+            risky=True,
         ),
         MenuItem(
             "cleanup.fast",
@@ -297,48 +334,19 @@ def tasks_menu() -> Menu:
     )
 
 
-HIBERNATION_MENU = Menu(
-    "memory.hibernation.title",
+PERFORMANCE_MENU = Menu(
+    "performance.title",
     (
         MenuItem(
-            "memory.hibernation.off",
-            action=turn_off_hibernation,
-            description_key="memory.hibernation.off.description",
-            admin=AdminNeed.ALL,
-            risky=True,
-            confirm_key="memory.hibernation.confirm",
-        ),
-        MenuItem(
-            "memory.hibernation.on",
-            action=turn_on_hibernation,
-            description_key="memory.hibernation.on.description",
-            admin=AdminNeed.ALL,
-            risky=True,
-        ),
-    ),
-)
-
-MEMORY_MENU = Menu(
-    "memory.title",
-    (
-        MenuItem(
-            "memory.startup",
+            "performance.startup",
             submenu_loader=startup_menu,
-            description_key="memory.startup.description",
+            description_key="performance.startup.description",
         ),
         MenuItem(
-            "memory.tasks",
+            "performance.tasks",
             submenu_loader=tasks_menu,
-            description_key="memory.tasks.description",
+            description_key="performance.tasks.description",
             admin=AdminNeed.ALL,
-        ),
-        MenuItem(
-            "memory.hibernation",
-            HIBERNATION_MENU,
-            state=is_hibernation_on,
-            description_key="memory.hibernation.description",
-            admin=AdminNeed.ALL,
-            risky=True,
         ),
     ),
 )
@@ -390,6 +398,73 @@ def programs_menu() -> Menu:
     )
 
 
+def _store_app_item(app: StoreApp, action: Action, kind: str, risky: bool = False) -> MenuItem:
+    return MenuItem(
+        f"store_{kind}:{app.full_name}",
+        label=app.name,
+        action=action,
+        description_key=f"store.{kind}.item.description",
+        description_values={"name": app.full_name, "version": app.version or "-"},
+        risky=risky,
+        confirm_key="store.reset.confirm" if risky else None,
+        cells=(app.version or None,),
+    )
+
+
+def _store_menu(kind: str) -> Menu:
+    """O menu das aplicações da Store, para repará-las (`repair`) ou repô-las (`reset`)."""
+    apps = list_store_apps()
+    if kind == "repair":
+        items = tuple(_store_app_item(app, repair_store_app(app), kind) for app in apps)
+    else:
+        items = tuple(_store_app_item(app, reset_store_app(app), kind, risky=True) for app in apps)
+    return Menu(
+        f"store.{kind}.title",
+        items or (MenuItem("store.none", description_key="store.none.description"),),
+        (("store.column.version", 14),),
+    )
+
+
+def repair_store_menu() -> Menu:
+    return _store_menu("repair")
+
+
+def reset_store_menu() -> Menu:
+    return _store_menu("reset")
+
+
+APPS_MENU = Menu(
+    "apps.title",
+    (
+        MenuItem(
+            "apps.uninstall",
+            submenu_loader=programs_menu,
+            description_key="apps.uninstall.description",
+        ),
+        MenuItem(
+            "apps.update_all",
+            action=update_all_apps,
+            description_key="apps.update_all.description",
+        ),
+        MenuItem(
+            "apps.repair",
+            submenu_loader=repair_store_menu,
+            description_key="apps.repair.description",
+        ),
+        MenuItem(
+            "apps.reset",
+            submenu_loader=reset_store_menu,
+            description_key="apps.reset.description",
+            risky=True,
+        ),
+        MenuItem(
+            "apps.open_with",
+            action=clean_open_with,
+            description_key="apps.open_with.description",
+        ),
+    ),
+)
+
 MAINTENANCE_MENU = Menu(
     "maintenance.title",
     (
@@ -399,14 +474,14 @@ MAINTENANCE_MENU = Menu(
             description_key="maintenance.cleanup.description",
         ),
         MenuItem(
-            "maintenance.memory",
-            MEMORY_MENU,
-            description_key="maintenance.memory.description",
+            "maintenance.performance",
+            PERFORMANCE_MENU,
+            description_key="maintenance.performance.description",
         ),
         MenuItem(
-            "maintenance.uninstall",
-            submenu_loader=programs_menu,
-            description_key="maintenance.uninstall.description",
+            "maintenance.apps",
+            APPS_MENU,
+            description_key="maintenance.apps.description",
         ),
     ),
 )

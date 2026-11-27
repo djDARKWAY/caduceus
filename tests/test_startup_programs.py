@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from caduceus.maintenance.memory import startup_programs
-from caduceus.maintenance.memory.executable_info import describe
-from caduceus.maintenance.memory.process_memory import memory_by_executable
-from caduceus.maintenance.memory.startup_programs import (
+from caduceus.maintenance.performance import startup_programs
+from caduceus.maintenance.performance.executable_info import describe
+from caduceus.maintenance.performance.process_memory import memory_by_executable
+from caduceus.maintenance.performance.startup_programs import (
     StartupEntry,
     StartupSource,
     executable_of,

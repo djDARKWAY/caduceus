@@ -131,7 +131,7 @@ def test_after_an_uninstall_the_list_keeps_its_sort_and_the_cursor_its_place_in_
         items = tuple(program(name, size) for name, size in installed.items())
         return Menu("programs.title", items, SIZE_COLUMNS)
 
-    parent = Menu("maintenance.title", (MenuItem("maintenance.uninstall", submenu_loader=loader),))
+    parent = Menu("maintenance.title", (MenuItem("apps.uninstall", submenu_loader=loader),))
     opened = press(Navigation(menus=(MAIN_MENU, parent), selected=(0, 0)), Key.ENTER)
     by_size = press(opened, Key.COLUMN_2)  # mostrado: B, C, A
     running = press(by_size, Key.ENTER)  # o cursor foi para B, a primeira mostrada
@@ -145,7 +145,11 @@ def test_after_an_uninstall_the_list_keeps_its_sort_and_the_cursor_its_place_in_
 
 
 def test_sorting_moves_the_cursor_to_the_first_row_of_the_new_order() -> None:
-    estimates = {item.label_key: index for index, item in enumerate(CLEANUP_MENU.items)}
+    estimates = {
+        item.label_key: index
+        for index, item in enumerate(CLEANUP_MENU.items)
+        if item.estimate is not None
+    }
     navigation = Navigation(
         menus=(MAIN_MENU, CLEANUP_MENU), selected=(MAINTENANCE, 4), estimates=estimates
     )

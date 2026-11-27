@@ -240,7 +240,11 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
 
 
 def _cell_text(texts: Texts, cell: int | str | None) -> str:
-    return texts[cell] if isinstance(cell, str) else format_estimate(cell)
+    if isinstance(cell, str):
+        return texts.get(
+            cell, cell
+        )  # sem texto traduzido, o próprio texto (por exemplo, uma versão)
+    return format_estimate(cell)
 
 
 def _visible_rows(count: int, index: int) -> range:

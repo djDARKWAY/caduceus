@@ -3,8 +3,8 @@ import subprocess
 
 import pytest
 
-from caduceus.maintenance.memory import scheduled_tasks
-from caduceus.maintenance.memory.scheduled_tasks import TaskEntry, parse_tasks, toggle_task
+from caduceus.maintenance.performance import scheduled_tasks
+from caduceus.maintenance.performance.scheduled_tasks import TaskEntry, parse_tasks, toggle_task
 
 OUTPUT = json.dumps(
     [
