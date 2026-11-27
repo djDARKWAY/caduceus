@@ -8,10 +8,10 @@ import os
 
 from rich.console import Console
 
-from caduceus.app import run
 from caduceus.config import DEFAULT_LANGUAGE
-from caduceus.i18n import load_texts
-from caduceus.window import fix_console_size
+from caduceus.controllers.app import run
+from caduceus.ui.i18n import load_texts
+from caduceus.ui.window import fix_console_size
 
 
 def main() -> None:

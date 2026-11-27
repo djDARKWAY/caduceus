@@ -7,7 +7,7 @@ Arte ASCII do cabeçalho, em ficheiros de texto desta pasta: `logo.txt` (o ícon
 
 from importlib import resources
 
-_FOLDER = resources.files("caduceus.assets")
+_FOLDER = resources.files("caduceus.ui.assets")
 
 
 def _read_lines(file_name: str) -> tuple[str, ...]:

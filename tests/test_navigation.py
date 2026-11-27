@@ -1,6 +1,8 @@
-from caduceus.keys import Key
-from caduceus.menus import MAIN_MENU, MAINTENANCE_MENU
-from caduceus.navigation import Navigation, press
+from caduceus.controllers.keys import Key
+from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, MAINTENANCE_MENU
+from caduceus.controllers.navigation import Navigation, complete, press
+from caduceus.maintenance.actions import Outcome
+from caduceus.maintenance.recycle_bin import empty_recycle_bin
 
 SCAN, MAINTENANCE, _SETTINGS, EXIT = range(4)
 
@@ -10,6 +12,10 @@ def press_all(*keys: Key) -> Navigation:
     for key in keys:
         navigation = press(navigation, key)
     return navigation
+
+
+def open_recycle_bin_action() -> Navigation:
+    return press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER, Key.DOWN, Key.ENTER)
 
 
 def test_down_on_the_last_option_goes_to_the_first() -> None:
@@ -24,6 +30,11 @@ def test_enter_on_manual_maintenance_opens_its_menu() -> None:
     navigation = press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER)
     assert navigation.menu is MAINTENANCE_MENU
     assert navigation.index == 0
+
+
+def test_enter_on_pc_cleanup_opens_the_cleanup_menu() -> None:
+    navigation = press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER)
+    assert navigation.menu is CLEANUP_MENU
 
 
 def test_backspace_returns_to_the_previous_menu_with_its_selection() -> None:
@@ -43,10 +54,20 @@ def test_option_without_a_screen_shows_a_notice_that_any_key_closes() -> None:
     assert press(navigation, Key.OTHER).menu is MAIN_MENU
 
 
-def test_pc_cleanup_has_no_actions_yet_and_shows_the_notice() -> None:
-    navigation = press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER)
-    assert navigation.menu is MAINTENANCE_MENU
-    assert navigation.notice
+def test_enter_on_an_action_starts_it_straight_away() -> None:
+    assert open_recycle_bin_action().running is empty_recycle_bin
+
+
+def test_a_finished_action_shows_its_outcome_until_any_key_is_pressed() -> None:
+    outcome = Outcome(items=2, bytes_freed=100)
+
+    navigation = complete(open_recycle_bin_action(), outcome)
+    assert navigation.running is None
+    assert navigation.outcome is outcome
+
+    dismissed = press(navigation, Key.OTHER)
+    assert dismissed.outcome is None
+    assert dismissed.menu is CLEANUP_MENU
 
 
 def test_enter_on_exit_finishes() -> None:

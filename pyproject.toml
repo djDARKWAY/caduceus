@@ -19,7 +19,7 @@ version = { attr = "caduceus.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-caduceus = ["locales/*.json", "assets/*.txt"]
+caduceus = ["ui/locales/*.json", "ui/assets/*.txt"]
 
 [tool.mypy]
 strict = true
@@ -43,3 +43,4 @@ select = ["E", "W", "F", "I", "ARG", "ANN401", "PGH003", "T20", "BLE001", "S110"
 paths = ["src", "tests"]
 # Membros do enum MainMenuOption, usados ao iterar o enum
 ignore_names = ["SCAN", "MAINTENANCE", "SETTINGS"]
+ignore_decorators = ["@pytest.fixture"]

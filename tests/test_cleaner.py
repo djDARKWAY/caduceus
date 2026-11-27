@@ -1,0 +1,157 @@
+import os
+import subprocess
+import time
+from pathlib import Path
+
+import pytest
+
+from caduceus.maintenance import cleaner
+from caduceus.maintenance.actions import Outcome, Step
+from caduceus.maintenance.cleaner import Location, clean_locations
+
+
+@pytest.fixture(autouse=True)
+def administrator(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cleaner, "_is_admin", lambda: True)
+
+
+def write(path: Path, size: int = 10, age_hours: int = 0) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"x" * size)
+    if age_hours:
+        modified = time.time() - age_hours * 3600
+        os.utime(path, (modified, modified))
+
+
+def clean(*locations: Location) -> Outcome:
+    return clean_locations(locations, lambda _: None)
+
+
+def test_everything_inside_the_folder_goes_but_the_folder_stays(tmp_path: Path) -> None:
+    write(tmp_path / "a.txt", size=10)
+    write(tmp_path / "sub" / "b.txt", size=20)
+
+    outcome = clean(Location(str(tmp_path)))
+
+    assert (outcome.items, outcome.bytes_freed, outcome.skipped) == (2, 30, 0)
+    assert tmp_path.is_dir()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_files_newer_than_the_minimum_age_are_kept(tmp_path: Path) -> None:
+    write(tmp_path / "old.tmp", age_hours=48)
+    write(tmp_path / "new.tmp", age_hours=1)
+
+    outcome = clean(Location(str(tmp_path), min_age_hours=24))
+
+    assert outcome.items == 1
+    assert [path.name for path in tmp_path.iterdir()] == ["new.tmp"]
+
+
+def test_only_names_matching_the_pattern_are_deleted(tmp_path: Path) -> None:
+    write(tmp_path / "thumbcache_32.db")
+    write(tmp_path / "thumbcache_96.db")
+    write(tmp_path / "keep.txt")
+
+    outcome = clean(Location(str(tmp_path), pattern="thumbcache_*.db"))
+
+    assert outcome.items == 2
+    assert [path.name for path in tmp_path.iterdir()] == ["keep.txt"]
+
+
+def test_a_location_that_does_not_exist_is_ignored(tmp_path: Path) -> None:
+    assert clean(Location(str(tmp_path / "missing"))) == Outcome(0, 0)
+
+
+def test_environment_variables_in_the_path_are_expanded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CADUCEUS_TEST_FOLDER", str(tmp_path))
+    write(tmp_path / "a.txt")
+
+    assert clean(Location("%CADUCEUS_TEST_FOLDER%")).items == 1
+
+
+def test_a_location_that_needs_administrator_is_reported_and_left_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cleaner, "_is_admin", lambda: False)
+    write(tmp_path / "a.txt")
+
+    outcome = clean(Location(str(tmp_path), needs_admin=True))
+
+    assert outcome.admin_required == (str(tmp_path),)
+    assert outcome.items == 0
+    assert (tmp_path / "a.txt").exists()
+
+
+def test_a_protected_folder_that_cannot_even_be_checked_asks_for_administrator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def deny(_path: Path) -> bool:
+        raise PermissionError
+
+    monkeypatch.setattr(cleaner, "_is_admin", lambda: False)
+    monkeypatch.setattr(Path, "is_dir", deny)
+
+    outcome = clean(Location(str(tmp_path), needs_admin=True))
+
+    assert outcome.admin_required == (str(tmp_path),)
+    assert outcome.failures == ()
+
+
+def test_a_folder_that_cannot_be_read_as_a_normal_user_is_a_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def deny(_path: Path) -> bool:
+        raise PermissionError
+
+    monkeypatch.setattr(Path, "is_dir", deny)
+
+    outcome = clean(Location(str(tmp_path)))
+
+    assert outcome.failures == (str(tmp_path),)
+
+
+def test_a_junction_is_never_followed_outside_the_folder(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    write(outside / "keep.txt")
+    root = tmp_path / "root"
+    root.mkdir()
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(root / "link"), str(outside)],
+        check=True,
+        capture_output=True,
+    )
+
+    outcome = clean(Location(str(root)))
+
+    assert outcome.items == 0
+    assert (outside / "keep.txt").exists()
+
+
+def test_a_file_that_cannot_be_deleted_is_counted_as_skipped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(_path: Path, _missing_ok: bool = False) -> None:
+        raise PermissionError
+
+    monkeypatch.setattr(Path, "unlink", refuse)
+    write(tmp_path / "locked.tmp")
+
+    outcome = clean(Location(str(tmp_path)))
+
+    assert (outcome.items, outcome.skipped) == (0, 1)
+
+
+def test_progress_reports_each_entry_with_what_is_being_cleaned(tmp_path: Path) -> None:
+    for name in ("a.txt", "b.txt", "c.txt"):
+        write(tmp_path / name)
+    steps: list[Step] = []
+
+    clean_locations([Location(str(tmp_path))], steps.append)
+
+    assert [(step.done, step.total) for step in steps] == [(0, 3), (1, 3), (2, 3)]
+    assert {step.values["path"] for step in steps} == {
+        str(tmp_path / name) for name in ("a.txt", "b.txt", "c.txt")
+    }

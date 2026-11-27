@@ -3,7 +3,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from caduceus.keys import Key, read_key
+from caduceus.controllers.keys import Key, read_key
 
 
 def press(monkeypatch: pytest.MonkeyPatch, *chars: str) -> Key:

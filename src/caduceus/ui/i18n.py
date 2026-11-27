@@ -12,7 +12,7 @@ from caduceus.config import FALLBACK_LANGUAGE
 
 Texts = dict[str, str]
 
-_LOCALES = resources.files("caduceus") / "locales"
+_LOCALES = resources.files("caduceus.ui") / "locales"
 _SUFFIX = ".json"
 
 

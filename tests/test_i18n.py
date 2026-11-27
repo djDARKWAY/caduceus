@@ -1,7 +1,7 @@
 import pytest
 
-from caduceus import i18n
-from caduceus.i18n import available_languages, load_texts
+from caduceus.ui import i18n
+from caduceus.ui.i18n import available_languages, load_texts
 
 
 def test_available_languages_lists_english_with_its_name() -> None:

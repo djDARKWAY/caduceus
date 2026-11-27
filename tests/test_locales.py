@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from caduceus.assets import NAME_WIDTH
-from caduceus.menus import MAIN_MENU, Menu
-from caduceus.ui import HINTS, VERSION_LABEL
+from caduceus.controllers.menus import MAIN_MENU, Menu
+from caduceus.ui.assets import NAME_WIDTH
+from caduceus.ui.render import HINTS, VERSION_LABEL
 
-LOCALES_DIR = Path(__file__).parent.parent / "src" / "caduceus" / "locales"
+LOCALES_DIR = Path(__file__).parent.parent / "src" / "caduceus" / "ui" / "locales"
 LANGUAGES = sorted(path.stem for path in LOCALES_DIR.glob("*.json"))
 PLACEHOLDER = re.compile(r"\{\w+\}")
 
@@ -56,5 +56,7 @@ def test_tagline_fits_beside_the_version_under_the_banner(language: str) -> None
 def test_every_text_the_screens_use_exists(language: str) -> None:
     texts = read_locale(language)
     used = menu_text_keys(MAIN_MENU) | {text_key for _, text_key in HINTS}
-    used |= {"app.tagline", "menu.not_available"}
+    used |= {"app.tagline", "menu.not_available", "recycle_bin.step", "cleaning.step"}
+    used |= {"result.done", "result.items", "result.freed", "result.back"}
+    used |= {"result.skipped", "result.admin", "result.failures"}
     assert all(texts.get(key) for key in used)

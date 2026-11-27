@@ -2,7 +2,7 @@
 Janela
 
 Fixa o tamanho da janela da consola e impede que se redimensione ou maximize. Só tem efeito na
-consola clássica do Windows (conhost). O Windows Terminal não deixa os programas mudar a sua
+consola clássica do Windows (conhost): o Windows Terminal não deixa os programas mudar a sua
 janela, e nesse caso o Caduceus corre no tamanho que o terminal tiver.
 """
 
