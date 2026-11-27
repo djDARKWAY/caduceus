@@ -76,10 +76,20 @@ def _render_header(texts: Texts) -> RenderableType:
     return header
 
 
-def _render_option(texts: Texts, item: MenuItem, is_selected: bool, settings: Settings) -> Text:
-    option = Text(f" {texts[item.label_key]} ", style=SELECTED_STYLE if is_selected else "")
+def _is_on(item: MenuItem, settings: Settings) -> bool | None:
+    """O estado ligado/desligado que a opção mostra, ou None se a opção não tem estado."""
     if item.setting is not None:
-        is_on = getattr(settings, item.setting)
+        return bool(getattr(settings, item.setting))
+    return item.state() if item.state is not None else None
+
+
+def _render_option(
+    texts: Texts, item: MenuItem, is_selected: bool, settings: Settings, blocked: bool = False
+) -> Text:
+    style = "dim" if blocked else (SELECTED_STYLE if is_selected else "")
+    option = Text(f" {texts[item.label_key]} ", style=style)
+    is_on = _is_on(item, settings)
+    if is_on is not None:
         option.append(
             texts["setting.on" if is_on else "setting.off"],
             style=ACCENT if is_on else DANGER,
@@ -169,7 +179,8 @@ def _render_options(texts: Texts, navigation: Navigation) -> tuple[RenderableTyp
         if item.quits:
             options.append(Text(""))
         is_selected = position == navigation.index
-        options.append(_render_option(texts, item, is_selected, navigation.settings))
+        blocked = is_blocked(navigation, item)
+        options.append(_render_option(texts, item, is_selected, navigation.settings, blocked))
     return Group(*options), 0
 
 

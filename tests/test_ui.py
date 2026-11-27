@@ -1,5 +1,10 @@
 import pytest
 
+from caduceus.config import SELECTED_STYLE
+from caduceus.controllers.menus import TWEAKS_MENU
+from caduceus.settings import Settings
+from caduceus.ui import render
+from caduceus.ui.i18n import load_texts
 from caduceus.ui.render import format_estimate, format_size
 
 
@@ -26,3 +31,11 @@ def test_the_estimated_gain_is_shown_as_approximate_or_unknown(
     estimate: int | None, expected: str
 ) -> None:
     assert format_estimate(estimate) == expected
+
+
+def test_an_option_blocked_by_safe_mode_is_shown_dimmed_even_when_selected() -> None:
+    texts = load_texts("en")
+    item = TWEAKS_MENU.items[0]
+
+    assert render._render_option(texts, item, True, Settings(), blocked=True).style == "dim"
+    assert render._render_option(texts, item, True, Settings()).style == SELECTED_STYLE

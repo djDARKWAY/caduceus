@@ -3,7 +3,7 @@ from dataclasses import replace
 import pytest
 
 from caduceus.controllers.keys import Key
-from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, MAINTENANCE_MENU
+from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, MAINTENANCE_MENU, TWEAKS_MENU
 from caduceus.controllers.navigation import (
     Navigation,
     complete,
@@ -276,3 +276,27 @@ def test_after_run_all_every_estimate_is_calculated_again() -> None:
     assert len(press(finished, Key.ENTER).to_estimate) == sum(
         item.estimate is not None for item in CLEANUP_MENU.items
     )
+
+
+def hibernation_menu(is_on: bool) -> Navigation:
+    item = replace(next(i for i in TWEAKS_MENU.items), state=lambda: is_on)
+    menu = replace(TWEAKS_MENU, items=(item,))
+    return Navigation(menus=(MAIN_MENU, menu), selected=(0, 0), settings=Settings(safe_mode=False))
+
+
+def test_turning_hibernation_off_asks_for_confirmation() -> None:
+    assert press(hibernation_menu(is_on=True), Key.ENTER).confirming
+
+
+def test_turning_hibernation_back_on_runs_straight_away() -> None:
+    navigation = press(hibernation_menu(is_on=False), Key.ENTER)
+
+    assert navigation.running is not None
+    assert not navigation.confirming
+
+
+@pytest.mark.parametrize("is_on", [True, False])
+def test_safe_mode_blocks_hibernation_in_both_directions(is_on: bool) -> None:
+    navigation = replace(hibernation_menu(is_on), settings=Settings(safe_mode=True))
+
+    assert press(navigation, Key.ENTER) == navigation

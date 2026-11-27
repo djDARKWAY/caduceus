@@ -94,7 +94,7 @@ def _enter(navigation: Navigation) -> Navigation:
     if is_blocked(navigation, item):
         return navigation
     if item.action is not None or item.runs_all:
-        if item.confirm_key is not None:
+        if item.confirm_key is not None and (item.state is None or item.state()):
             return replace(navigation, confirming=True)
         return replace(navigation, running=_action_for(navigation, item))
     if item.submenu is not None:

@@ -5,6 +5,7 @@ Estrutura dos menus, só dados: que menus existem e que opções cada um tem. Os
 ficheiros de idiomas, pelas chaves aqui indicadas. Juntar um menu ou uma opção é juntar dados.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
@@ -29,7 +30,7 @@ from caduceus.maintenance.free_space.system_caches import (
 from caduceus.maintenance.free_space.temp_files import clean_temp_files, estimate_temp_files
 from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, estimate_windows_logs
 from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
-from caduceus.maintenance.system_tweaks.hibernation import turn_off_hibernation
+from caduceus.maintenance.system_tweaks.hibernation import is_hibernation_on, toggle_hibernation
 
 
 class AdminNeed(Enum):
@@ -44,7 +45,9 @@ class AdminNeed(Enum):
 # Modo seguro bloqueia; `confirm_key`, as que só correm depois de o utilizador confirmar o aviso
 # com esse texto; `estimate`, o que calcula quanto a ação deve libertar (para a tabela do menu);
 # `setting`, o nome da definição que a opção liga ou desliga; `runs_all`, a opção que corre todas as
-# ações do menu que o Modo seguro deixa correr.
+# ações do menu que o Modo seguro deixa correr; `state`, o estado atual (ligado ou desligado) que a
+# ação inverte, mostrado ao lado do nome. O aviso de `confirm_key` só aparece quando o estado é
+# ligado (a direção que pode ter consequências).
 @dataclass(frozen=True)
 class MenuItem:
     label_key: str
@@ -58,6 +61,7 @@ class MenuItem:
     estimate: Estimator | None = None
     setting: str | None = None
     runs_all: bool = False
+    state: Callable[[], bool] | None = None
 
 
 @dataclass(frozen=True)
@@ -159,7 +163,8 @@ TWEAKS_MENU = Menu(
     (
         MenuItem(
             "tweaks.hibernation",
-            action=turn_off_hibernation,
+            action=toggle_hibernation,
+            state=is_hibernation_on,
             description_key="tweaks.hibernation.description",
             admin=AdminNeed.ALL,
             risky=True,

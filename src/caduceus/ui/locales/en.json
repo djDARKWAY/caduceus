@@ -108,11 +108,11 @@
   "cleanup.restore_points.description": "Deletes all restore points and Shadow Copies of the system drive. It can free many GB, but you can no longer go back with a restore point or recover earlier versions of files. It asks for confirmation first and cannot be cancelled once started. Only available with Safe mode OFF.\n• Restore · system restore points\n• Files · Shadow Copies (previous versions)",
   "cleanup.restore_points.confirm": "This permanently deletes ALL the restore points and Shadow Copies of the system drive. You will no longer be able to restore Windows to an earlier point or recover earlier versions of files, and this cannot be undone. Once it starts it cannot be cancelled.",
   "tweaks.title": "SYSTEM TWEAKS",
-  "tweaks.hibernation": "Turn off hibernation",
-  "tweaks.hibernation.description": "Turns off hibernation to free the space it reserves. This is a system setting, not a disk cleanup. It asks for confirmation first. Only available with Safe mode OFF.\n• Hibernation · hiberfil.sys (about 40% of RAM)\n• Startup · Fast Startup is turned off too",
+  "tweaks.hibernation": "Hibernation",
+  "tweaks.hibernation.description": "Shows whether hibernation is ON or OFF and switches it. Turning it OFF frees the space Windows reserves for it and also turns off Fast Startup; turning it ON reserves that space again. This is a system setting, not a disk cleanup. Turning it off asks for confirmation. Only available with Safe mode OFF.\n• Hibernation · hiberfil.sys (about 40% of RAM)\n• Startup · Fast Startup depends on it",
   "tweaks.hibernation.confirm": "This turns off hibernation and deletes C:\\hiberfil.sys. Fast Startup is turned off too, so Windows may start more slowly, and you can no longer hibernate. To undo it, run powercfg /hibernate on as administrator.",
   "restore_points.step": "Deleting the restore points (this can take a while)",
-  "hibernation.step": "Turning off hibernation",
+  "hibernation.step": "Changing the hibernation setting",
   "category.store_cache": "Microsoft Store cache",
   "category.search_cache": "Windows Search cache",
   "category.internet_cache": "Windows Internet cache",
@@ -129,5 +129,6 @@
   "category.windows_logs": "Windows logs",
   "category.defender_cache": "Windows Defender logs and cache",
   "category.restore_points": "Restore points",
-  "category.hibernation_file": "Hibernation file"
+  "category.hibernation_file": "Hibernation file",
+  "category.hibernation_on": "Hibernation turned on"
 }
