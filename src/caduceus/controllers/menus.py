@@ -24,7 +24,11 @@ from caduceus.maintenance.apps.store_apps import (
     repair_store_app,
     reset_store_app,
 )
-from caduceus.maintenance.apps.winget_upgrades import update_all_apps
+from caduceus.maintenance.apps.winget_upgrades import (
+    UpgradableApp,
+    list_upgradable,
+    update_apps,
+)
 from caduceus.maintenance.free_space.app_caches import clean_app_caches, estimate_app_caches
 from caduceus.maintenance.free_space.browser_caches import (
     clean_browser_caches,
@@ -398,6 +402,45 @@ def programs_menu() -> Menu:
     )
 
 
+def _update_item(app: UpgradableApp) -> MenuItem:
+    return MenuItem(
+        f"update:{app.package_id}",
+        label=app.name,
+        action=update_apps([app]),
+        description_key="apps.update.item.description",
+        description_values={
+            "name": app.name,
+            "id": app.package_id,
+            "version": app.version or "-",
+            "available": app.available or "-",
+        },
+        cells=(app.version or None, app.available or None),
+        refreshes_menu=True,
+    )
+
+
+def update_menu() -> Menu:
+    """O menu das aplicações com atualização, criado a partir do que o winget encontra agora, com
+    a opção que as atualiza todas no fim."""
+    apps = list_upgradable()
+    items = tuple(_update_item(app) for app in apps)
+    if apps:
+        items += (
+            MenuItem(
+                "apps.update_all",
+                action=update_apps(apps),
+                description_key="apps.update_all.description",
+                runs_all=True,
+                refreshes_menu=True,
+            ),
+        )
+    return Menu(
+        "apps.update.title",
+        items or (MenuItem("apps.update.none", description_key="apps.update.none.description"),),
+        (("apps.update.column.current", 16), ("apps.update.column.available", 16)),
+    )
+
+
 def _store_app_item(app: StoreApp, action: Action, kind: str, risky: bool = False) -> MenuItem:
     return MenuItem(
         f"store_{kind}:{app.full_name}",
@@ -442,9 +485,9 @@ APPS_MENU = Menu(
             description_key="apps.uninstall.description",
         ),
         MenuItem(
-            "apps.update_all",
-            action=update_all_apps,
-            description_key="apps.update_all.description",
+            "apps.update",
+            submenu_loader=update_menu,
+            description_key="apps.update.description",
         ),
         MenuItem(
             "apps.repair",

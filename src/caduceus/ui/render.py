@@ -308,6 +308,14 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
         state = [_state_cell(texts, item, navigation.settings, selected)] if has_state else []
         cells = [_cell_text(texts, cell) for cell in item.cells]
         cells += [""] * (len(menu.columns) - len(cells))
+        if item.runs_all:
+            if position > 0 and not menu.items[order[position - 1]].runs_all:
+                table.add_section()
+            style = f"bold white on {ACCENT}" if selected else f"bold {ACCENT}"
+            table.add_row(
+                Text(f" {RUN_ALL_MARK} {item_label(texts, item)}"), *state, *cells, style=style
+            )
+            continue
         blocked = is_blocked(navigation, item)
         table.add_row(
             Text(f" {item_label(texts, item)}"),
@@ -315,7 +323,7 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
             *cells,
             style=SELECTED_STYLE if selected else ("dim" if blocked else ""),
         )
-    found = sum(item.action is not None for item in menu.items)
+    found = sum(item.action is not None and not item.runs_all for item in menu.items)
     return Group(_menu_title(texts, navigation, found), table)
 
 

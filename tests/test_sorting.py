@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, Menu, MenuItem
 from caduceus.controllers.navigation import Navigation, column_count, complete, display_order, press
@@ -157,3 +159,24 @@ def test_sorting_moves_the_cursor_to_the_first_row_of_the_new_order() -> None:
     sorted_down = press(press(navigation, Key.COLUMN_2), Key.COLUMN_2)
 
     assert sorted_down.index == display_order(sorted_down)[0]
+
+
+def test_the_update_all_option_stays_last_in_any_sort_and_runs_its_own_action() -> None:
+    def update_all(_report: Report) -> Outcome:
+        return Outcome(2, 0)
+
+    def app(name: str, version: str) -> MenuItem:
+        return MenuItem(f"update:{name}", label=name, action=update_all, cells=(version, "9"))
+
+    items = (
+        app("A", "3"),
+        app("B", "1"),
+        MenuItem("apps.update_all", action=update_all, runs_all=True),
+    )
+    menu = Menu("apps.update.title", items, (("c", 8), ("l", 8)))
+    navigation = Navigation(menus=(MAIN_MENU, menu), selected=(0, 0))
+
+    by_version = press(navigation, Key.COLUMN_2)
+
+    assert [menu.items[i].label_key for i in display_order(by_version)][-1] == "apps.update_all"
+    assert press(replace(navigation, selected=(0, 2)), Key.ENTER).running is update_all

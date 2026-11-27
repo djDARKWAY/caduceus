@@ -150,7 +150,7 @@ def is_blocked(navigation: Navigation, item: MenuItem) -> bool:
 
 def _action_for(navigation: Navigation, item: MenuItem) -> Action | None:
     """A ação da opção; a que corre tudo junta as do menu que o Modo seguro deixa correr."""
-    if not item.runs_all:
+    if not item.runs_all or item.action is not None:
         return item.action
     return run_all(
         [
