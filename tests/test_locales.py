@@ -91,6 +91,8 @@ def test_every_text_the_screens_use_exists(language: str) -> None:
         "startup.source.run_machine",
         "startup.source.folder_user",
         "startup.source.folder_machine",
+        "startup.source.service",
+        "startup.source.service_updater",
         "impact.low",
         "impact.medium",
         "impact.high",

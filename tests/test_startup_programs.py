@@ -314,3 +314,23 @@ def test_microsoft_files_are_recognised_by_their_manufacturer() -> None:
 
     assert describe(windows_tool).from_microsoft
     assert not describe(sys.executable).from_microsoft
+
+
+@pytest.mark.parametrize(
+    ("source", "label", "expected"),
+    [
+        (StartupSource.SERVICE, "Norton Antivirus", True),
+        (StartupSource.SERVICE, "FortiClient VPN Service Scheduler", True),
+        (StartupSource.SERVICE, "MongoDB Server (MongoDB)", True),
+        (StartupSource.SERVICE, "Google Updater Service", False),
+        (StartupSource.SERVICE, "LGHUB Updater Service", False),
+        (StartupSource.RUN_USER, "Bitwarden", False),
+        (StartupSource.RUN_MACHINE, "Norton 360", False),
+    ],
+)
+def test_only_the_delicate_services_need_safe_mode_off(
+    source: StartupSource, label: str, expected: bool
+) -> None:
+    item = StartupEntry(label, label, r"C:pp.exe", source, None)
+
+    assert item.needs_safe_mode_off is expected

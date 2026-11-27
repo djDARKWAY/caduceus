@@ -82,14 +82,12 @@ class MenuItem:
 
 
 # `columns` são os títulos (a chave do texto) e a largura das colunas das células das opções,
-# quando o menu é uma tabela; `selectable_when_blocked`, os menus em que o cursor também pára nas
-# opções bloqueadas pelo Modo seguro (para as ler), sem as deixar correr
+# quando o menu é uma tabela
 @dataclass(frozen=True)
 class Menu:
     title_key: str
     items: tuple[MenuItem, ...]
     columns: tuple[tuple[str, int], ...] = ()
-    selectable_when_blocked: bool = False
 
 
 CLEANUP_MENU = Menu(
@@ -188,6 +186,13 @@ _SOURCE_DESCRIPTIONS = {
     StartupSource.FOLDER_MACHINE: "startup.source.folder_machine",
     StartupSource.SERVICE: "startup.source.service",
 }
+_UPDATER_DESCRIPTION = "startup.source.service_updater"
+
+
+def _description_key(entry: StartupEntry) -> str:
+    if entry.source is StartupSource.SERVICE and not entry.needs_safe_mode_off:
+        return _UPDATER_DESCRIPTION
+    return _SOURCE_DESCRIPTIONS[entry.source]
 
 
 def _startup_item(entry: StartupEntry) -> MenuItem:
@@ -199,10 +204,10 @@ def _startup_item(entry: StartupEntry) -> MenuItem:
         label=entry.label,
         action=toggle_startup(entry),
         state=lambda: is_enabled(entry),
-        description_key=_SOURCE_DESCRIPTIONS[entry.source],
+        description_key=_description_key(entry),
         description_values={"command": entry.command or "-", "name": entry.name},
         admin=AdminNeed.ALL if entry.needs_admin else None,
-        risky=is_service,
+        risky=entry.needs_safe_mode_off,
         cells=(entry.memory_bytes, f"impact.{impact}" if impact else None, kind),
         instant=True,
     )
@@ -215,7 +220,6 @@ def startup_menu() -> Menu:
         "startup.title",
         items or (MenuItem("startup.none", description_key="startup.none.description"),),
         (("startup.column.memory", 9), ("startup.column.impact", 6), ("startup.column.type", 7)),
-        selectable_when_blocked=True,
     )
 
 

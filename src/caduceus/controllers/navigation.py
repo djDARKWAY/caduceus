@@ -80,7 +80,7 @@ def _move(navigation: Navigation, step: int) -> Navigation:
     index = navigation.index
     for _ in items:
         index = (index + step) % len(items)
-        if navigation.menu.selectable_when_blocked or not is_blocked(navigation, items[index]):
+        if not is_blocked(navigation, items[index]):
             return replace(navigation, selected=(*navigation.selected[:-1], index))
     return navigation
 
@@ -99,14 +99,10 @@ def _enter(navigation: Navigation) -> Navigation:
         return replace(navigation, running=_action_for(navigation, item))
     submenu = item.submenu_loader() if item.submenu_loader is not None else item.submenu
     if submenu is not None:
-        first = (
-            0
-            if submenu.selectable_when_blocked
-            else next(
-                (i for i, other in enumerate(submenu.items) if not is_blocked(navigation, other)),
-                0,
-            )
-        )
+        free = [i for i, other in enumerate(submenu.items) if not is_blocked(navigation, other)]
+        if not free:
+            return navigation  # nada lá dentro se pode escolher com o Modo seguro ligado
+        first = free[0]
         return replace(
             navigation,
             menus=(*navigation.menus, submenu),

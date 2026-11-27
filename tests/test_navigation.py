@@ -3,7 +3,14 @@ from dataclasses import replace
 import pytest
 
 from caduceus.controllers.keys import Key
-from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, MAINTENANCE_MENU, MEMORY_MENU
+from caduceus.controllers.menus import (
+    CLEANUP_MENU,
+    MAIN_MENU,
+    MAINTENANCE_MENU,
+    MEMORY_MENU,
+    Menu,
+    MenuItem,
+)
 from caduceus.controllers.navigation import (
     Navigation,
     complete,
@@ -304,8 +311,6 @@ def test_safe_mode_blocks_hibernation_in_both_directions(is_on: bool) -> None:
 
 
 def instant_menu(outcome: Outcome) -> Navigation:
-    from caduceus.controllers.menus import Menu, MenuItem
-
     item = MenuItem("startup:test", label="Example", action=lambda _report: outcome, instant=True)
     return Navigation(menus=(MAIN_MENU, Menu("startup.title", (item,))), selected=(0, 0))
 
@@ -329,8 +334,6 @@ def test_an_instant_action_that_goes_wrong_shows_its_result() -> None:
 
 
 def test_a_menu_created_when_it_is_opened_is_loaded_on_every_entry() -> None:
-    from caduceus.controllers.menus import Menu, MenuItem
-
     loaded: list[str] = []
 
     def loader() -> Menu:
@@ -348,29 +351,34 @@ def test_a_menu_created_when_it_is_opened_is_loaded_on_every_entry() -> None:
     assert loaded == ["loaded", "loaded"]
 
 
-def blocked_list(selectable: bool) -> Navigation:
-    from caduceus.controllers.menus import Menu, MenuItem
+def list_menu(*risky: bool) -> Navigation:
+    def option(index: int, is_risky: bool) -> MenuItem:
+        return MenuItem(
+            f"startup:{index}",
+            label=str(index),
+            action=lambda _report: Outcome(0, 0),
+            risky=is_risky,
+        )
 
-    items = (
-        MenuItem("startup:a", label="A", action=lambda _report: Outcome(0, 0)),
-        MenuItem("startup:b", label="B", action=lambda _report: Outcome(0, 0), risky=True),
-        MenuItem("startup:c", label="C", action=lambda _report: Outcome(0, 0), risky=True),
-    )
-    menu = Menu("startup.title", items, selectable_when_blocked=selectable)
-    return Navigation(menus=(MAIN_MENU, menu), selected=(0, 0), settings=Settings(safe_mode=True))
-
-
-def test_in_a_list_that_allows_it_the_cursor_also_stops_on_blocked_options() -> None:
-    navigation = blocked_list(selectable=True)
-
-    second = press(navigation, Key.DOWN)
-    third = press(second, Key.DOWN)
-
-    assert (second.index, third.index) == (1, 2)
-    assert press(third, Key.ENTER) == third  # parar nela não a deixa correr
+    items = tuple(option(index, is_risky) for index, is_risky in enumerate(risky))
+    startup = MenuItem("memory.startup", submenu=Menu("startup.title", items))
+    parent = Menu("memory.title", (startup,))
+    settings = Settings(safe_mode=True)
+    return Navigation(menus=(MAIN_MENU, parent), selected=(0, 0), settings=settings)
 
 
-def test_elsewhere_the_cursor_still_skips_blocked_options() -> None:
-    navigation = press(blocked_list(selectable=False), Key.DOWN)
+def test_with_safe_mode_on_the_cursor_skips_the_options_that_need_it_off() -> None:
+    navigation = press(list_menu(False, True, True, False), Key.ENTER)
 
-    assert navigation.index == 0
+    visited = [navigation.index]
+    for _ in range(4):
+        navigation = press(navigation, Key.DOWN)
+        visited.append(navigation.index)
+
+    assert visited == [0, 3, 0, 3, 0]
+
+
+def test_a_list_where_everything_needs_safe_mode_off_cannot_be_opened() -> None:
+    navigation = list_menu(True, True)
+
+    assert press(navigation, Key.ENTER) == navigation
