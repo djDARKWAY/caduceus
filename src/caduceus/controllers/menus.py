@@ -81,12 +81,13 @@ class MenuItem:
     instant: bool = False
 
 
-# `column_keys` são os títulos das colunas das células das opções, quando o menu é uma tabela
+# `columns` são os títulos (a chave do texto) e a largura das colunas das células das opções,
+# quando o menu é uma tabela
 @dataclass(frozen=True)
 class Menu:
     title_key: str
     items: tuple[MenuItem, ...]
-    column_keys: tuple[str, ...] = ()
+    columns: tuple[tuple[str, int], ...] = ()
 
 
 CLEANUP_MENU = Menu(
@@ -183,20 +184,24 @@ _SOURCE_DESCRIPTIONS = {
     StartupSource.RUN_MACHINE_32: "startup.source.run_machine",
     StartupSource.FOLDER_USER: "startup.source.folder_user",
     StartupSource.FOLDER_MACHINE: "startup.source.folder_machine",
+    StartupSource.SERVICE: "startup.source.service",
 }
 
 
 def _startup_item(entry: StartupEntry) -> MenuItem:
     impact = impact_of(entry.memory_bytes)
+    is_service = entry.source is StartupSource.SERVICE
+    kind = "startup.type.service" if is_service else "startup.type.program"
     return MenuItem(
         f"startup:{entry.source.value}:{entry.name}",
         label=entry.label,
         action=toggle_startup(entry),
         state=lambda: is_enabled(entry),
         description_key=_SOURCE_DESCRIPTIONS[entry.source],
-        description_values={"command": entry.command or "-"},
+        description_values={"command": entry.command or "-", "name": entry.name},
         admin=AdminNeed.ALL if entry.needs_admin else None,
-        cells=(entry.memory_bytes, f"impact.{impact}" if impact else None),
+        risky=is_service,
+        cells=(entry.memory_bytes, f"impact.{impact}" if impact else None, kind),
         instant=True,
     )
 
@@ -207,7 +212,7 @@ def startup_menu() -> Menu:
     return Menu(
         "startup.title",
         items or (MenuItem("startup.none", description_key="startup.none.description"),),
-        ("startup.column.memory", "startup.column.impact"),
+        (("startup.column.memory", 10), ("startup.column.impact", 6), ("startup.column.type", 7)),
     )
 
 
