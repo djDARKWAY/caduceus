@@ -1,14 +1,15 @@
 """
 Limpar as caches das aplicações
 
-Apaga as caches de aplicações conhecidas: Discord, Slack, Microsoft Teams, Telegram, Spotify, Zoom
-(neste, os registos), Notion, Obsidian, Figma, Postman, VS Code (incluindo as extensões
-descarregadas), Cursor, GitHub Desktop, a loja e a cache de transferências do Steam (`depotcache`),
-o Epic Games Launcher, o Adobe (a cache de multimédia) e o OneDrive (só os registos). Só mexe nas
-pastas de cache: nunca em contas, mensagens, notas, definições, jogos instalados nem nas músicas
-descarregadas do Spotify. As aplicações de conversa, trabalho e multimédia que estiverem abertas são
-fechadas à força antes de limpar (não as de programação, nem o Steam e o Epic, para não perder
-trabalho nem uma transferência). O que não está instalado é ignorado.
+Apaga as caches de aplicações conhecidas: Discord, Slack, Microsoft Teams, Telegram, Signal,
+Spotify, Zoom (neste, os registos), Notion, Obsidian, Figma, Postman, VS Code (incluindo as
+extensões descarregadas), Cursor, GitHub Desktop, a loja e a cache de transferências do Steam
+(`depotcache`), o Epic Games Launcher, o Ubisoft Connect, o Adobe (a cache de multimédia), o
+OneDrive e o Google Drive (só os registos). Só mexe nas pastas de cache: nunca em contas, mensagens,
+notas, definições, jogos instalados nem nas músicas descarregadas do Spotify. As aplicações de
+conversa, trabalho e multimédia que estiverem abertas são fechadas à força antes de limpar (não as
+de programação, nem o Steam e o Epic, para não perder trabalho nem uma transferência). O que não
+está instalado é ignorado.
 """
 
 import time
@@ -33,6 +34,7 @@ _APP_PROCESSES = (
     "Teams.exe",
     "ms-teams.exe",
     "Telegram.exe",
+    "Signal.exe",
     "Spotify.exe",
     "Zoom.exe",
     "Notion.exe",
@@ -46,6 +48,9 @@ _TELEGRAM = r"%APPDATA%\Telegram Desktop\tdata\user_data"
 LOCATIONS = (
     *chromium_caches(r"%APPDATA%\discord", "category.app_discord"),
     *chromium_caches(r"%APPDATA%\Slack", "category.app_slack"),
+    *chromium_caches(r"%APPDATA%\Signal", "category.app_signal"),
+    Location(r"%LOCALAPPDATA%\Google\DriveFS\Logs", "category.app_google_drive"),
+    Location(r"%LOCALAPPDATA%\Ubisoft Game Launcher\cache", "category.app_ubisoft"),
     *chromium_caches(r"%APPDATA%\Code", _VSCODE),
     Location(r"%APPDATA%\Code\CachedData", _VSCODE),
     Location(r"%APPDATA%\Code\CachedExtensionVSIXs", _VSCODE),

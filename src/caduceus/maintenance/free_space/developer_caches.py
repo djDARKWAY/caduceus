@@ -2,11 +2,13 @@ r"""
 Limpar as caches de programação
 
 Apaga as caches de pacotes do npm, do pnpm, do Yarn, do Bun, do pip, do uv, do Poetry, do Composer,
-do NuGet, do Gradle, do Cargo, do Go e do Dart, a cache de pacotes do Unity, a Derived Data Cache do
-Unreal Engine, a cache de componentes do Visual Studio e as caches
-dos IDE da JetBrains (que se reconstroem com uma nova indexação). Os pacotes voltam a ser
-descarregados na próxima compilação ou instalação (sem rede, essa compilação falha). Não mexe nos
-projetos, nos `node_modules` nem na pasta `.nuget\packages`. O que não está instalado é ignorado.
+do pre-commit, do NuGet, do Gradle, do Cargo, do Go e do Dart, os navegadores e binários
+descarregados pelo Playwright, pelo Cypress, pelo Puppeteer, pelo Electron e pelo node-gyp, a cache
+de pacotes do Unity, a Derived Data Cache do Unreal Engine, a cache de componentes do Visual Studio
+e as caches dos IDE da JetBrains (que se reconstroem com uma nova indexação). Os pacotes voltam a
+ser descarregados na próxima compilação ou instalação (sem rede, essa compilação falha). Não mexe
+nos projetos, nos `node_modules` nem na pasta `.nuget\packages`. O que não está instalado é
+ignorado.
 """
 
 from caduceus.maintenance.actions import Outcome, Report
@@ -37,6 +39,12 @@ LOCATIONS = (
         "category.visual_studio_cache",
     ),
     Location(r"%LOCALAPPDATA%\JetBrains\*\caches", "category.jetbrains_cache"),
+    Location(r"%LOCALAPPDATA%\ms-playwright", "category.playwright_cache"),
+    Location(r"%LOCALAPPDATA%\Cypress\Cache", "category.cypress_cache"),
+    Location(r"%USERPROFILE%\.cache\puppeteer", "category.puppeteer_cache"),
+    Location(r"%LOCALAPPDATA%\electron\Cache", "category.electron_cache"),
+    Location(r"%LOCALAPPDATA%\node-gyp\Cache", "category.node_gyp_cache"),
+    Location(r"%USERPROFILE%\.cache\pre-commit", "category.pre_commit_cache"),
     Location(r"%LOCALAPPDATA%\Unity\cache\packages", "category.unity_cache"),
     Location(r"%LOCALAPPDATA%\UnrealEngine\Common\DerivedDataCache", "category.unreal_cache"),
 )

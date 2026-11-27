@@ -6,7 +6,8 @@ remove da pasta WinSxS os componentes de atualizações antigas. Nunca usa `/Res
 continua a ser possível desinstalar atualizações. O DISM não diz o que apagou, e o espaço libertado
 mede-se pela diferença de espaço livre no disco do sistema. Apaga também os registos e a cache de
 análises do Windows Defender (`Support` e `Scans\\History\\CacheManager`, em `%PROGRAMDATA%`), que
-ele volta a criar, sem tocar na quarentena. Exige administrador.
+ele volta a criar, sem tocar na quarentena, e a cache de tipos de letra do Windows
+(`FontCache`). Exige administrador.
 """
 
 import os
@@ -20,10 +21,16 @@ _SUCCESS_CODES = (0, 3010)  # 3010: concluído, falta reiniciar
 _COMPONENT_STORE = r"%WINDIR%\WinSxS"
 # Registos e cache de análises do Windows Defender: ele volta a criá-los. A quarentena não se toca
 _DEFENDER = r"%PROGRAMDATA%\Microsoft\Windows Defender"
-DEFENDER_LOCATIONS = (
+SYSTEM_LOCATIONS = (
     Location(_DEFENDER + r"\Support", "category.defender_cache", needs_admin=True),
     Location(
         _DEFENDER + r"\Scans\History\CacheManager", "category.defender_cache", needs_admin=True
+    ),
+    # A cache de tipos de letra: o Windows reconstrói-a, e o que o serviço tem em uso fica de fora
+    Location(
+        r"%WINDIR%\ServiceProfiles\LocalService\AppData\Local\FontCache",
+        "category.font_cache",
+        needs_admin=True,
     ),
 )
 
@@ -51,12 +58,12 @@ def _clean_component_store(report: Report) -> Outcome:
 def clean_components(report: Report) -> Outcome:
     if not is_admin():
         return Outcome(0, 0, admin_required=(os.path.expandvars(_COMPONENT_STORE),))
-    defender = clean_locations(DEFENDER_LOCATIONS, report)
+    leftovers = clean_locations(SYSTEM_LOCATIONS, report)
     store = _clean_component_store(report)
     return Outcome(
-        defender.items,
-        defender.bytes_freed + store.bytes_freed,
-        failures=store.failures + defender.failures,
-        admin_required=defender.admin_required,
-        rows=store.rows + defender.rows,
+        leftovers.items,
+        leftovers.bytes_freed + store.bytes_freed,
+        failures=store.failures + leftovers.failures,
+        admin_required=leftovers.admin_required,
+        rows=store.rows + leftovers.rows,
     )

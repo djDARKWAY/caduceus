@@ -39,7 +39,7 @@ from caduceus.maintenance.actions import Outcome, Step
 from caduceus.settings import Settings
 from caduceus.ui.assets import LOGO_LINES, LOGO_WIDTH, NAME_LINES, NAME_WIDTH
 from caduceus.ui.i18n import Texts
-from caduceus.ui.palette import ACCENT, ACCENT_DARK, WARNING
+from caduceus.ui.palette import ACCENT, ACCENT_DARK, DANGER, WARNING
 
 VERSION_LABEL = f"v{__version__}"
 
@@ -221,7 +221,7 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
         is_on = _is_on(item, navigation.settings)
         state = Text("" if is_on is None else texts["setting.on" if is_on else "setting.off"])
         if not selected and is_on is not None:
-            state.stylize(ACCENT)
+            state.stylize(ACCENT if is_on else DANGER)
         cells = [_cell_text(texts, cell) for cell in item.cells]
         cells += [""] * (len(menu.columns) - len(cells))
         blocked = is_blocked(navigation, item)

@@ -9,3 +9,4 @@ cor de todo o programa, muda o valor aqui. Aceita qualquer cor do `rich` (por ex
 ACCENT = "green"  # destaque: logótipo, títulos, barra de progresso e teclas de controlo
 ACCENT_DARK = "dark_green"  # o modo (Normal ou Administrator) no cabeçalho
 WARNING = "yellow"  # avisos e o que falhou numa ação
+DANGER = "red"  # um programa de arranque desligado (OFF)
