@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from caduceus.controllers import menus
-from caduceus.controllers.menus import AdminNeed, programs_menu
+from caduceus.controllers import tables
+from caduceus.controllers.menu_model import AdminNeed
+from caduceus.controllers.tables import programs_menu
 from caduceus.maintenance.actions import Report, Step
 from caduceus.maintenance.apps import installed_programs
 from caduceus.maintenance.apps.installed_programs import (
@@ -292,7 +293,7 @@ def test_a_program_with_a_missing_uninstaller_offers_to_clean_the_leftover_inste
         program_running(r'"C:\Caduceus tests\un.exe"'), name="Some Runtime", key_path="b"
     )
     here = program_running("MsiExec.exe /X{GUID}", machine)
-    monkeypatch.setattr(menus, "list_installed_programs", lambda: [gone, runtime, here])
+    monkeypatch.setattr(tables, "list_installed_programs", lambda: [gone, runtime, here])
 
     stale_machine, stale_user, healthy = programs_menu().items
 

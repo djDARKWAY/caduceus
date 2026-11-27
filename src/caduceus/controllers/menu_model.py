@@ -1,0 +1,75 @@
+"""
+Modelo dos menus
+
+Os tipos com que os menus se descrevem: o `Menu`, a `MenuItem` (o que cada opção faz e mostra) e
+o que uma opção exige de administrador. Só dados, sem lógica de navegação.
+"""
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from enum import Enum
+
+from caduceus.maintenance.actions import Action, Estimator
+
+
+class AdminNeed(Enum):
+    """Quanto da opção exige administrador; o valor é a chave do texto do aviso."""
+
+    SOME = "admin.some"
+    ALL = "admin.all"
+
+
+# Sem submenu, ação nem quits, a opção ainda não tem ecrã e mostra um aviso.
+# `admin` diz se (parte d)a opção só funciona como administrador; `risky`, as ações que o
+# Modo seguro bloqueia; `confirm_key`, as que só correm depois de o utilizador confirmar o aviso
+# com esse texto; `estimate`, o que calcula quanto a ação deve libertar (para a tabela do menu);
+# `setting`, o nome da definição cujo estado a opção mostra (e que o seu submenu muda); `choice`, a
+# definição e o valor que a opção grava ao ser escolhida (volta ao menu anterior);
+# `runs_all`, a opção que corre todas as
+# ações do menu que o Modo seguro deixa correr; `state`, o estado atual (ligado ou desligado) que a
+# ação inverte, mostrado ao lado do nome. O aviso de `confirm_key` só aparece quando o estado é
+# ligado (a direção que pode ter consequências). `label`, `description_values` e `cells` são para as
+# opções que se criam ao abrir o menu: o nome (em vez de `label_key`), os valores que completam o
+# texto da descrição e as colunas da tabela (um número é uma memória em bytes, um texto é a chave
+# de um texto traduzido, e None é «não se sabe»); `submenu_loader`, o que cria o submenu ao entrar
+# nele; `instant`, as ações tão rápidas que só mostram o resultado se algo correr mal;
+# `refreshes_menu`, as ações que mudam a lista (por exemplo, desinstalar), que volta a criar-se
+# quando o utilizador sai do resultado.
+@dataclass(frozen=True)
+class MenuItem:
+    label_key: str
+    submenu: "Menu | None" = None
+    action: Action | None = None
+    quits: bool = False
+    description_key: str | None = None
+    admin: AdminNeed | None = None
+    risky: bool = False
+    confirm_key: str | None = None
+    estimate: Estimator | None = None
+    setting: str | None = None
+    choice: tuple[str, bool] | None = None
+    runs_all: bool = False
+    skips_slow: bool = False  # `runs_all` sem as ações marcadas como lentas
+    slow: bool = False  # ação demorada, que a versão rápida de `runs_all` salta
+    state: Callable[[], bool] | None = None  # o estado ligado/desligado, mostrado ao lado do nome
+    only_without_admin: bool = False  # só faz sentido sem administrador (fica esbatida com ele)
+    label: str | None = None
+    description_values: Mapping[str, str] = field(default_factory=dict)
+    cells: tuple[int | str | None, ...] = ()
+    submenu_loader: Callable[[], "Menu"] | None = None
+    instant: bool = False
+    refreshes_menu: bool = False
+
+
+# `columns` são os títulos (a chave do texto) e a largura das colunas das células das opções,
+# quando o menu é uma tabela; `name_width`, a largura da coluna do nome, se não for a habitual
+@dataclass(frozen=True)
+class Menu:
+    title_key: str
+    items: tuple[MenuItem, ...]
+    columns: tuple[tuple[str, int], ...] = ()
+    name_width: int | None = None
+
+
+def item_label(texts: Mapping[str, str], item: MenuItem) -> str:
+    return item.label if item.label is not None else texts.get(item.label_key, item.label_key)

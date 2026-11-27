@@ -6,19 +6,12 @@ import pytest
 from rich.console import Console
 
 from caduceus.config import SELECTED_STYLE, WINDOW_LINES
-from caduceus.controllers import menus
+from caduceus.controllers import tables
 from caduceus.controllers.keys import Key
-from caduceus.controllers.menus import (
-    MAIN_MENU,
-    PERFORMANCE_MENU,
-    SETTINGS_MENU,
-    Menu,
-    MenuItem,
-    item_label,
-    programs_menu,
-    startup_menu,
-)
+from caduceus.controllers.menu_model import Menu, MenuItem, item_label
+from caduceus.controllers.menus import MAIN_MENU, PERFORMANCE_MENU, SETTINGS_MENU
 from caduceus.controllers.navigation import Navigation, press
+from caduceus.controllers.tables import programs_menu, startup_menu
 from caduceus.maintenance.apps.installed_programs import InstalledProgram
 from caduceus.maintenance.performance.startup_programs import StartupEntry, StartupSource
 from caduceus.settings import Settings
@@ -47,8 +40,8 @@ def fictitious_lists(monkeypatch: pytest.MonkeyPatch) -> None:
         )
         for n in range(12)
     ]
-    monkeypatch.setattr(menus, "list_startup_entries", lambda: startup)
-    monkeypatch.setattr(menus, "list_installed_programs", lambda: programs)
+    monkeypatch.setattr(tables, "list_startup_entries", lambda: startup)
+    monkeypatch.setattr(tables, "list_installed_programs", lambda: programs)
 
 
 @pytest.mark.parametrize(

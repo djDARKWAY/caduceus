@@ -4,7 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from caduceus.controllers.menus import MAIN_MENU, Menu
+from caduceus.controllers.menu_model import Menu
+from caduceus.controllers.menus import MAIN_MENU
 from caduceus.ui.assets import NAME_WIDTH
 from caduceus.ui.render import CONFIRM_HINTS, HINTS, NOTICE_HINTS, OUTCOME_HINTS, VERSION_LABEL
 

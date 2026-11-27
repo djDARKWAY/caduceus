@@ -19,7 +19,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
 from caduceus.controllers.keys import Key
-from caduceus.controllers.menus import MAIN_MENU, AdminNeed, Menu, MenuItem, item_label
+from caduceus.controllers.menu_model import AdminNeed, Menu, MenuItem, item_label
+from caduceus.controllers.menus import MAIN_MENU
 from caduceus.maintenance.actions import Action, Outcome
 from caduceus.maintenance.free_space.run_all import run_all
 from caduceus.settings import Settings

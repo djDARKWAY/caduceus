@@ -1,7 +1,8 @@
 from dataclasses import replace
 
 from caduceus.controllers.keys import Key
-from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, Menu, MenuItem
+from caduceus.controllers.menu_model import Menu, MenuItem
+from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU
 from caduceus.controllers.navigation import (
     Navigation,
     column_count,

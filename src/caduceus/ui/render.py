@@ -32,7 +32,7 @@ from caduceus.config import (
     TABLE_MAX_ROWS,
     WINDOW_LINES,
 )
-from caduceus.controllers.menus import MenuItem, item_label
+from caduceus.controllers.menu_model import MenuItem, item_label
 from caduceus.controllers.navigation import (
     Navigation,
     Sort,

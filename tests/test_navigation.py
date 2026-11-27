@@ -3,6 +3,7 @@ from dataclasses import replace
 import pytest
 
 from caduceus.controllers.keys import Key
+from caduceus.controllers.menu_model import AdminNeed, Menu, MenuItem
 from caduceus.controllers.menus import (
     CLEANUP_MENU,
     MAIN_MENU,
@@ -10,9 +11,6 @@ from caduceus.controllers.menus import (
     PERFORMANCE_MENU,
     SAFE_MODE_MENU,
     SETTINGS_MENU,
-    AdminNeed,
-    Menu,
-    MenuItem,
 )
 from caduceus.controllers.navigation import (
     Navigation,
