@@ -17,6 +17,8 @@ from caduceus.config import WINDOW_COLUMNS, WINDOW_LINES
 
 _MODE_COMMAND = r"%WINDIR%\System32\mode.com"
 _WINDOWS_TERMINAL_VARIABLE = "WT_SESSION"
+_CLASSIC_CONSOLE_CLASS = "ConsoleWindowClass"  # o Windows Terminal usa a PseudoConsoleWindow
+_CLASS_NAME_CHARS = 64
 _GWL_STYLE = -16
 _WS_THICKFRAME = 0x00040000
 _WS_MAXIMIZEBOX = 0x00010000
@@ -41,8 +43,18 @@ def _lock_resizing() -> None:
     )
 
 
+def _is_classic_console() -> bool:
+    """Verdadeiro só na consola clássica: nas outras (Windows Terminal) a janela não é do programa."""
+    window = ctypes.windll.kernel32.GetConsoleWindow()
+    if not window:
+        return False
+    name = ctypes.create_unicode_buffer(_CLASS_NAME_CHARS)
+    ctypes.windll.user32.GetClassNameW(window, name, _CLASS_NAME_CHARS)
+    return name.value == _CLASSIC_CONSOLE_CLASS
+
+
 def fix_console_size() -> None:
-    if _WINDOWS_TERMINAL_VARIABLE in os.environ:
+    if _WINDOWS_TERMINAL_VARIABLE in os.environ or not _is_classic_console():
         return
     subprocess.run(
         [
