@@ -13,12 +13,6 @@ from caduceus.ui import open_display, show
 
 
 def run(console: Console, texts: Texts) -> None:
-    """Corre o Caduceus até o utilizador sair.
-
-    Args:
-        console: consola onde desenhar.
-        texts: textos da interface no idioma ativo.
-    """
     navigation = Navigation()
     with open_display(console, texts, navigation) as display:
         while not navigation.finished:

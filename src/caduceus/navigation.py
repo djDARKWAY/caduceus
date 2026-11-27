@@ -13,15 +13,6 @@ from caduceus.menus import MAIN_MENU, Menu
 
 @dataclass(frozen=True)
 class Navigation:
-    """Estado da navegação.
-
-    Attributes:
-        menus: caminho de menus abertos, do principal até ao atual.
-        selected: posição selecionada em cada menu do caminho.
-        notice: se está a mostrar o aviso de opção ainda sem ecrã.
-        finished: se o utilizador pediu para sair do Caduceus.
-    """
-
     menus: tuple[Menu, ...] = (MAIN_MENU,)
     selected: tuple[int, ...] = (0,)
     notice: bool = False
@@ -61,17 +52,6 @@ def _back(navigation: Navigation) -> Navigation:
 
 
 def press(navigation: Navigation, key: Key) -> Navigation:
-    """Aplica uma tecla ao estado da navegação.
-
-    Q sai sempre. Com o aviso aberto, qualquer outra tecla fecha-o.
-
-    Args:
-        navigation: estado atual.
-        key: tecla premida.
-
-    Returns:
-        O novo estado (o mesmo, se a tecla não tiver efeito).
-    """
     if key is Key.QUIT:
         return replace(navigation, finished=True)
     if navigation.notice:

@@ -15,7 +15,6 @@ from caduceus.window import fix_console_size
 
 
 def main() -> None:
-    """Fixa o tamanho da consola, limpa-a e corre o Caduceus no idioma por defeito."""
     fix_console_size()
     os.system("cls")
     run(Console(), load_texts(DEFAULT_LANGUAGE))

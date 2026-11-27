@@ -22,13 +22,6 @@ _CHAR_KEYS = {"\r": Key.ENTER, "\x08": Key.BACK, "q": Key.QUIT, "Q": Key.QUIT, "
 
 
 def read_key() -> Key:
-    """Espera por uma tecla e devolve a que interessa ao Caduceus (as outras dão `Key.OTHER`).
-
-    Q e Ctrl+C contam ambos como `Key.QUIT`.
-
-    Returns:
-        A tecla de controlo premida.
-    """
     char = msvcrt.getwch()
     if char in ("\x00", "\xe0"):
         return _EXTENDED_KEYS.get(msvcrt.getwch(), Key.OTHER)

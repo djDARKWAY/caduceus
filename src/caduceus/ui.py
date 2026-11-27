@@ -84,17 +84,6 @@ def _render_hints(texts: Texts) -> RenderableType:
 
 
 def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
-    """Monta o ecrã completo: cabeçalho, conteúdo e teclas de controlo.
-
-    Todos os ecrãs usam esta moldura, por isso o cabeçalho e as teclas aparecem sempre.
-
-    Args:
-        texts: textos da interface no idioma ativo.
-        navigation: estado da navegação a desenhar.
-
-    Returns:
-        O ecrã pronto a mostrar.
-    """
     if navigation.notice:
         body = _render_notice(texts)
     else:
@@ -103,16 +92,6 @@ def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
 
 
 def open_display(console: Console, texts: Texts, navigation: Navigation) -> Live:
-    """Abre o ecrã do Caduceus (num ecrã alternativo, que se fecha ao sair).
-
-    Args:
-        console: consola onde desenhar.
-        texts: textos da interface no idioma ativo.
-        navigation: estado inicial.
-
-    Returns:
-        O ecrã vivo, para usar com `with` e atualizar com `show`.
-    """
     return Live(
         render_screen(texts, navigation),
         console=console,
@@ -122,5 +101,4 @@ def open_display(console: Console, texts: Texts, navigation: Navigation) -> Live
 
 
 def show(display: Live, texts: Texts, navigation: Navigation) -> None:
-    """Redesenha o ecrã aberto com o estado de navegação indicado."""
     display.update(render_screen(texts, navigation), refresh=True)

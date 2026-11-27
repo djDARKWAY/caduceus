@@ -8,14 +8,9 @@ ficheiros de idiomas, pelas chaves aqui indicadas. Juntar um menu ou uma opção
 from dataclasses import dataclass
 
 
+# Sem submenu nem quits, a opção ainda não tem ecrã e mostra um aviso
 @dataclass(frozen=True)
 class MenuItem:
-    """Uma opção de menu.
-
-    Sem `submenu` e sem `quits`, a opção ainda não tem ecrã e mostra um aviso. A descrição, se
-    existir, aparece à direita do menu enquanto a opção está selecionada.
-    """
-
     label_key: str
     submenu: "Menu | None" = None
     quits: bool = False

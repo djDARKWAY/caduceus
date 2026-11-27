@@ -37,6 +37,5 @@ def _lock_resizing() -> None:
 
 
 def fix_console_size() -> None:
-    """Dá à consola o tamanho do `config` (colunas x linhas) e bloqueia o redimensionamento."""
     os.system(f"mode con: cols={WINDOW_COLUMNS} lines={WINDOW_LINES} >nul")
     _lock_resizing()
