@@ -5,9 +5,13 @@ Apaga as caches de aplicações conhecidas: Discord, Slack, Microsoft Teams, Tel
 (neste, os registos), Notion, Obsidian, Figma, Postman, VS Code (incluindo as extensões
 descarregadas), Cursor, GitHub Desktop, a loja do Steam, o Epic Games Launcher, o Adobe (a cache de
 multimédia) e o OneDrive (só os registos). Só mexe nas pastas de cache: nunca
-em contas, mensagens, notas, definições nem nas músicas descarregadas do Spotify. O que não está
-instalado é ignorado.
+em contas, mensagens, notas, definições nem nas músicas descarregadas do Spotify. As aplicações de
+conversa, trabalho e multimédia que estiverem abertas são fechadas à força antes de limpar (não as
+de programação, nem o Steam e o Epic, para não perder trabalho nem uma transferência). O que não
+está instalado é ignorado.
 """
+
+import time
 
 from caduceus.maintenance.actions import Outcome, Report
 from caduceus.maintenance.free_space.cleaner import (
@@ -16,10 +20,27 @@ from caduceus.maintenance.free_space.cleaner import (
     clean_locations,
     estimate_locations,
 )
+from caduceus.maintenance.system_tool import run_system_tool
 
 _VSCODE = "category.app_vscode"
 _NEW_TEAMS = r"%LOCALAPPDATA%\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams"
 _SPOTIFY_STORE = r"%LOCALAPPDATA%\Packages\SpotifyAB.SpotifyMusic_zpdnekdrzrea0\LocalCache\Spotify"
+# O código de saída do `taskkill` é 0 quando fechou algo; sem nada aberto, devolve outro e segue-se
+_APP_PROCESSES = (
+    "Discord.exe",
+    "slack.exe",
+    "Teams.exe",
+    "ms-teams.exe",
+    "Telegram.exe",
+    "Spotify.exe",
+    "Zoom.exe",
+    "Notion.exe",
+    "Obsidian.exe",
+    "Figma.exe",
+    "Postman.exe",
+    "GitHubDesktop.exe",
+)
+_RELEASE_SECONDS = 1  # o tempo para o Windows libertar os ficheiros das aplicações fechadas
 _TELEGRAM = r"%APPDATA%\Telegram Desktop\tdata\user_data"
 LOCATIONS = (
     *chromium_caches(r"%APPDATA%\discord", "category.app_discord"),
@@ -48,7 +69,18 @@ LOCATIONS = (
 )
 
 
+def _close_running_apps(report: Report) -> None:
+    command = ["/F", "/T"] + [argument for name in _APP_PROCESSES for argument in ("/IM", name)]
+    try:
+        closed_any = run_system_tool("taskkill.exe", command, report, "closing_apps.step")
+    except OSError:
+        return  # sem o taskkill, limpa-se na mesma o que não estiver em uso
+    if closed_any:
+        time.sleep(_RELEASE_SECONDS)
+
+
 def clean_app_caches(report: Report) -> Outcome:
+    _close_running_apps(report)
     return clean_locations(LOCATIONS, report)
 
 

@@ -318,6 +318,7 @@ def _render_progress(texts: Texts, title: str, step: Step) -> RenderableType:
         pulse=not step.total,
         complete_style=ACCENT,
         finished_style=ACCENT,
+        pulse_style=ACCENT,
     )
     percentage = Text(f"{step.done * 100 // step.total}%" if step.total else "")
     bar.add_row(progress_bar, percentage, Spinner("dots", style=ACCENT))

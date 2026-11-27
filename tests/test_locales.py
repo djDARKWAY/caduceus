@@ -67,6 +67,7 @@ def test_every_text_the_screens_use_exists(language: str) -> None:
         "notice.not_available",
         "recycle_bin.step",
         "cleaning.step",
+        "closing_apps.step",
         "action.step",
         "estimate.step",
         "setting.on",
