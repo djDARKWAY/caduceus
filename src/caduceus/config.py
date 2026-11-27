@@ -53,3 +53,4 @@ STARTUP_HIGH_IMPACT_MB    = 300  # a partir desta memória em uso, o impacto é 
 # ==============================================================================
 POWERSHELL_TIMEOUT_SECONDS = 60   # tempo máximo de uma consulta ao PowerShell
 WINGET_TIMEOUT_SECONDS     = 120  # tempo máximo da lista de atualizações do winget
+WINGET_CACHE_SECONDS       = 120  # durante quanto tempo se reaproveita a última lista do winget

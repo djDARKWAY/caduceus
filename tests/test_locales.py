@@ -141,6 +141,8 @@ def test_every_text_the_screens_use_exists(language: str) -> None:
         "apps.update.item.description",
         "apps.update.none",
         "apps.update.none.description",
+        "apps.update.failed",
+        "apps.update.failed.description",
         "apps.update.column.current",
         "apps.update.column.available",
         "category.updated_app",

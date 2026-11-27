@@ -1,3 +1,5 @@
+import subprocess
+
 import pytest
 
 from caduceus.maintenance.apps import winget_upgrades
@@ -33,10 +35,49 @@ def test_an_output_without_a_table_gives_no_apps(output: str) -> None:
     assert parse_upgradable(output) == []
 
 
-def test_without_winget_there_is_nothing_to_list(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture(autouse=True)
+def empty_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(winget_upgrades, "_cache", None)
+
+
+def test_without_winget_the_list_is_unknown_and_not_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("shutil.which", lambda _name: None)
 
-    assert list_upgradable() == []
+    assert list_upgradable() is None
+
+
+def test_a_slow_winget_gives_an_unknown_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    def too_slow(*_args: object, **_kwargs: object) -> None:
+        raise subprocess.TimeoutExpired("winget", 1)
+
+    monkeypatch.setattr("shutil.which", lambda _name: "winget.exe")
+    monkeypatch.setattr("subprocess.run", too_slow)
+
+    assert list_upgradable() is None
+
+
+def test_the_list_is_reused_and_an_updated_app_leaves_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+
+    class Result:
+        stdout = TABLE.encode("utf-8")
+
+    def fake_run(*_args: object, **_kwargs: object) -> Result:
+        calls.append(1)
+        return Result()
+
+    monkeypatch.setattr("shutil.which", lambda _name: "winget.exe")
+    monkeypatch.setattr("subprocess.run", fake_run)
+    monkeypatch.setattr(winget_upgrades, "run_system_tool", lambda *_a, **_k: True)
+
+    first = list_upgradable()
+    assert first is not None
+    update_apps(first[:1])(lambda _: None)
+    second = list_upgradable()
+
+    assert len(calls) == 1
+    assert second is not None
+    assert [app.package_id for app in second] == ["Ubisoft.Connect"]
 
 
 def test_each_chosen_app_is_updated_by_its_id_and_the_failures_are_reported(
@@ -87,4 +128,7 @@ def test_the_table_is_read_as_utf_8_so_accented_titles_keep_the_columns_aligned(
     monkeypatch.setattr("shutil.which", lambda _name: "winget.exe")
     monkeypatch.setattr("subprocess.run", lambda *_a, **_k: Result())
 
-    assert [app.version for app in list_upgradable()] == ["2.101.0", "< 175.2.0.1"]
+    apps = list_upgradable()
+
+    assert apps is not None
+    assert [app.version for app in apps] == ["2.101.0", "< 175.2.0.1"]

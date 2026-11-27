@@ -439,10 +439,16 @@ def _update_item(app: UpgradableApp) -> MenuItem:
     )
 
 
+def _update_empty_item(failed: bool) -> MenuItem:
+    key = "apps.update.failed" if failed else "apps.update.none"
+    return MenuItem(key, description_key=f"{key}.description")
+
+
 def update_menu() -> Menu:
     """O menu das aplicações com atualização, criado a partir do que o winget encontra agora, com
     a opção que as atualiza todas no fim."""
-    apps = list_upgradable()
+    listed = list_upgradable()
+    apps = listed or []
     items = tuple(_update_item(app) for app in apps)
     if apps:
         items += (
@@ -456,7 +462,7 @@ def update_menu() -> Menu:
         )
     return Menu(
         "apps.update.title",
-        items or (MenuItem("apps.update.none", description_key="apps.update.none.description"),),
+        items or (_update_empty_item(failed=listed is None),),
         (("apps.update.column.current", 18), ("apps.update.column.available", 18)),
         name_width=22,
     )

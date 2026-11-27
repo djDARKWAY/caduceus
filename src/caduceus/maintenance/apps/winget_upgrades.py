@@ -12,10 +12,11 @@ não precisa de administrador.
 import re
 import shutil
 import subprocess
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from caduceus.config import WINGET_TIMEOUT_SECONDS
+from caduceus.config import WINGET_CACHE_SECONDS, WINGET_TIMEOUT_SECONDS
 from caduceus.maintenance.actions import Action, Outcome, Report, Row
 from caduceus.maintenance.system_tool import run_system_tool
 
@@ -66,11 +67,19 @@ def parse_upgradable(output: str) -> list[UpgradableApp]:
     return apps
 
 
-def list_upgradable() -> list[UpgradableApp]:
-    """As aplicações com atualização, ou nenhuma se o `winget` não existe ou não responde."""
+# A última lista que o winget deu, para não a pedir outra vez (demora segundos) ao voltar à tabela
+_cache: tuple[float, list[UpgradableApp]] | None = None
+
+
+def list_upgradable() -> list[UpgradableApp] | None:
+    """As aplicações com atualização (a lista pode estar vazia), ou None se o `winget` não existe
+    ou não responde, para não parecer que está tudo atualizado."""
+    global _cache
+    if _cache is not None and time.monotonic() - _cache[0] < WINGET_CACHE_SECONDS:
+        return list(_cache[1])
     winget = shutil.which("winget")
     if winget is None:
-        return []
+        return None
     try:
         result = subprocess.run(
             [winget, *_LIST_ARGUMENTS],
@@ -80,8 +89,17 @@ def list_upgradable() -> list[UpgradableApp]:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
-        return []  # sem lista legível, não há nada que se saiba atualizar
-    return parse_upgradable(result.stdout.decode("utf-8", errors="replace"))
+        return None
+    apps = parse_upgradable(result.stdout.decode("utf-8", errors="replace"))
+    _cache = (time.monotonic(), apps)
+    return list(apps)
+
+
+def _forget(updated: set[str]) -> None:
+    """As aplicações já atualizadas saem da lista guardada."""
+    global _cache
+    if _cache is not None:
+        _cache = (_cache[0], [app for app in _cache[1] if app.package_id not in updated])
 
 
 def update_apps(apps: Sequence[UpgradableApp]) -> Action:
@@ -105,6 +123,7 @@ def update_apps(apps: Sequence[UpgradableApp]) -> Action:
                 values=values,
             )
             if updated:
+                _forget({app.package_id})
                 rows.append(Row("category.updated_app", 1, 0, {"name": app.name}))
             else:
                 failures.append(app.name)
