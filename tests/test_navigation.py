@@ -346,3 +346,31 @@ def test_a_menu_created_when_it_is_opened_is_loaded_on_every_entry() -> None:
     assert opened.menu.title_key == "startup.title"
     assert reopened.menu.title_key == "startup.title"
     assert loaded == ["loaded", "loaded"]
+
+
+def blocked_list(selectable: bool) -> Navigation:
+    from caduceus.controllers.menus import Menu, MenuItem
+
+    items = (
+        MenuItem("startup:a", label="A", action=lambda _report: Outcome(0, 0)),
+        MenuItem("startup:b", label="B", action=lambda _report: Outcome(0, 0), risky=True),
+        MenuItem("startup:c", label="C", action=lambda _report: Outcome(0, 0), risky=True),
+    )
+    menu = Menu("startup.title", items, selectable_when_blocked=selectable)
+    return Navigation(menus=(MAIN_MENU, menu), selected=(0, 0), settings=Settings(safe_mode=True))
+
+
+def test_in_a_list_that_allows_it_the_cursor_also_stops_on_blocked_options() -> None:
+    navigation = blocked_list(selectable=True)
+
+    second = press(navigation, Key.DOWN)
+    third = press(second, Key.DOWN)
+
+    assert (second.index, third.index) == (1, 2)
+    assert press(third, Key.ENTER) == third  # parar nela não a deixa correr
+
+
+def test_elsewhere_the_cursor_still_skips_blocked_options() -> None:
+    navigation = press(blocked_list(selectable=False), Key.DOWN)
+
+    assert navigation.index == 0

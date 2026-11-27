@@ -206,11 +206,12 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
             state.stylize(ACCENT if is_on else DANGER)
         cells = [_cell_text(texts, cell) for cell in item.cells]
         cells += [""] * (len(menu.columns) - len(cells))
+        blocked = is_blocked(navigation, item)
         table.add_row(
             Text(f" {item_label(texts, item)}"),
             state,
             *cells,
-            style=SELECTED_STYLE if selected else "",
+            style=SELECTED_STYLE if selected else ("dim" if blocked else ""),
         )
     title = texts[menu.title_key]
     if len(rows) < len(menu.items):

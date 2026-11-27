@@ -82,12 +82,14 @@ class MenuItem:
 
 
 # `columns` são os títulos (a chave do texto) e a largura das colunas das células das opções,
-# quando o menu é uma tabela
+# quando o menu é uma tabela; `selectable_when_blocked`, os menus em que o cursor também pára nas
+# opções bloqueadas pelo Modo seguro (para as ler), sem as deixar correr
 @dataclass(frozen=True)
 class Menu:
     title_key: str
     items: tuple[MenuItem, ...]
     columns: tuple[tuple[str, int], ...] = ()
+    selectable_when_blocked: bool = False
 
 
 CLEANUP_MENU = Menu(
@@ -213,6 +215,7 @@ def startup_menu() -> Menu:
         "startup.title",
         items or (MenuItem("startup.none", description_key="startup.none.description"),),
         (("startup.column.memory", 10), ("startup.column.impact", 6), ("startup.column.type", 7)),
+        selectable_when_blocked=True,
     )
 
 
