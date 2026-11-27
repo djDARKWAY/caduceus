@@ -1,0 +1,15 @@
+{
+  "language.name": "Português (Portugal)",
+  "app.tagline": "Manutenção e diagnóstico do Windows",
+  "menu.title": "MENU PRINCIPAL",
+  "menu.scan": "Análise do PC",
+  "menu.maintenance": "Manutenção manual",
+  "menu.settings": "Definições",
+  "menu.exit": "Sair",
+  "menu.not_available": "Ainda não disponível. Prima qualquer tecla para voltar.",
+  "hint.up": "Subir",
+  "hint.down": "Descer",
+  "hint.select": "Selecionar",
+  "hint.back": "Recuar",
+  "hint.quit": "Sair do Caduceus"
+}
