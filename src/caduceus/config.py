@@ -27,7 +27,7 @@ MAX_LISTED_PLACES = 3       # locais listados num aviso do resultado (os restant
 # 3. WINDOW
 # ==============================================================================
 WINDOW_COLUMNS = 132        # largura fixa da janela da consola, em colunas
-WINDOW_LINES   = 30         # altura fixa da janela da consola, em linhas
+WINDOW_LINES   = 34         # altura fixa da janela da consola, em linhas
 
 # ==============================================================================
 # 4. SETTINGS
