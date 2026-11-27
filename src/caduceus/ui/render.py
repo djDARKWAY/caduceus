@@ -29,7 +29,7 @@ from caduceus.config import (
     MENU_WIDTH,
     PROGRESS_WIDTH,
     SELECTED_STYLE,
-    STARTUP_VISIBLE_ROWS,
+    TABLE_MAX_ROWS,
     WINDOW_LINES,
 )
 from caduceus.controllers.menus import MenuItem, item_label
@@ -209,7 +209,10 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
         min_width=_column_width(gain_title, 0),
     )
     items = navigation.menu.items
-    for index in display_order(navigation):
+    order = display_order(navigation)
+    visible = _visible_rows(len(order), order.index(navigation.index))
+    for position in visible:
+        index = order[position]
         item = items[index]
         selected = index == navigation.index
         if item.runs_all:
@@ -218,7 +221,7 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
                 for other in items
                 if not is_blocked(navigation, other) and not (item.skips_slow and other.slow)
             )
-            if not items[index - 1].runs_all:
+            if position > visible.start and not items[order[position - 1]].runs_all:
                 table.add_section()
             weight = "" if item.skips_slow else "bold "
             style = f"bold white on {ACCENT}" if selected else f"{weight}{ACCENT}"
@@ -242,8 +245,8 @@ def _cell_text(texts: Texts, cell: int | str | None) -> str:
 
 def _visible_rows(count: int, index: int) -> range:
     """As linhas da lista que cabem no ecrã, com a selecionada lá dentro (a meio, se possível)."""
-    start = min(max(index - STARTUP_VISIBLE_ROWS // 2, 0), max(count - STARTUP_VISIBLE_ROWS, 0))
-    return range(start, min(start + STARTUP_VISIBLE_ROWS, count))
+    start = min(max(index - TABLE_MAX_ROWS // 2, 0), max(count - TABLE_MAX_ROWS, 0))
+    return range(start, min(start + TABLE_MAX_ROWS, count))
 
 
 def _state_cell(texts: Texts, item: MenuItem, settings: Settings, selected: bool) -> Text:
