@@ -3,7 +3,7 @@ Ações
 
 Os tipos comuns a todas as ações da Manutenção manual: o passo em curso (para a barra de
 progresso), o resultado (com uma linha por categoria) e a forma de uma ação. Cada ação vive num
-ficheiro de `maintenance/free_space/` ou `maintenance/system_tweaks/`.
+ficheiro de `maintenance/free_space/` ou `maintenance/memory/`.
 """
 
 from collections.abc import Callable, Mapping

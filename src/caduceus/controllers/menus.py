@@ -30,7 +30,7 @@ from caduceus.maintenance.free_space.system_caches import (
 from caduceus.maintenance.free_space.temp_files import clean_temp_files, estimate_temp_files
 from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, estimate_windows_logs
 from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
-from caduceus.maintenance.system_tweaks.hibernation import is_hibernation_on, toggle_hibernation
+from caduceus.maintenance.memory.hibernation import is_hibernation_on, toggle_hibernation
 
 
 class AdminNeed(Enum):
@@ -158,17 +158,17 @@ CLEANUP_MENU = Menu(
     ),
 )
 
-TWEAKS_MENU = Menu(
-    "tweaks.title",
+MEMORY_MENU = Menu(
+    "memory.title",
     (
         MenuItem(
-            "tweaks.hibernation",
+            "memory.hibernation",
             action=toggle_hibernation,
             state=is_hibernation_on,
-            description_key="tweaks.hibernation.description",
+            description_key="memory.hibernation.description",
             admin=AdminNeed.ALL,
             risky=True,
-            confirm_key="tweaks.hibernation.confirm",
+            confirm_key="memory.hibernation.confirm",
         ),
     ),
 )
@@ -182,9 +182,9 @@ MAINTENANCE_MENU = Menu(
             description_key="maintenance.cleanup.description",
         ),
         MenuItem(
-            "maintenance.tweaks",
-            TWEAKS_MENU,
-            description_key="maintenance.tweaks.description",
+            "maintenance.memory",
+            MEMORY_MENU,
+            description_key="maintenance.memory.description",
         ),
     ),
 )

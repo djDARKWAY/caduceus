@@ -3,7 +3,7 @@ from dataclasses import replace
 import pytest
 
 from caduceus.controllers.keys import Key
-from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, MAINTENANCE_MENU, TWEAKS_MENU
+from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, MAINTENANCE_MENU, MEMORY_MENU
 from caduceus.controllers.navigation import (
     Navigation,
     complete,
@@ -279,8 +279,8 @@ def test_after_run_all_every_estimate_is_calculated_again() -> None:
 
 
 def hibernation_menu(is_on: bool) -> Navigation:
-    item = replace(next(i for i in TWEAKS_MENU.items), state=lambda: is_on)
-    menu = replace(TWEAKS_MENU, items=(item,))
+    item = replace(next(i for i in MEMORY_MENU.items), state=lambda: is_on)
+    menu = replace(MEMORY_MENU, items=(item,))
     return Navigation(menus=(MAIN_MENU, menu), selected=(0, 0), settings=Settings(safe_mode=False))
 
 

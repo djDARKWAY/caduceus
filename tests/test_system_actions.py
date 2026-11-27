@@ -8,8 +8,8 @@ import pytest
 
 from caduceus.maintenance.actions import Action, Step
 from caduceus.maintenance.free_space import components, restore_points, windows_old
+from caduceus.maintenance.memory import hibernation
 from caduceus.maintenance.system_tool import parse_percent, run_system_tool
-from caduceus.maintenance.system_tweaks import hibernation
 
 
 def refuse_to_launch(*_args: object, **_kwargs: object) -> None:
