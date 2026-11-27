@@ -119,12 +119,13 @@ class MenuItem:
 
 
 # `columns` são os títulos (a chave do texto) e a largura das colunas das células das opções,
-# quando o menu é uma tabela
+# quando o menu é uma tabela; `name_width`, a largura da coluna do nome, se não for a habitual
 @dataclass(frozen=True)
 class Menu:
     title_key: str
     items: tuple[MenuItem, ...]
     columns: tuple[tuple[str, int], ...] = ()
+    name_width: int | None = None
 
 
 def item_label(texts: Mapping[str, str], item: MenuItem) -> str:
@@ -437,7 +438,8 @@ def update_menu() -> Menu:
     return Menu(
         "apps.update.title",
         items or (MenuItem("apps.update.none", description_key="apps.update.none.description"),),
-        (("apps.update.column.current", 16), ("apps.update.column.available", 16)),
+        (("apps.update.column.current", 18), ("apps.update.column.available", 18)),
+        name_width=22,
     )
 
 

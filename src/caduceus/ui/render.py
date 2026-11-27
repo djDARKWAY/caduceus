@@ -267,7 +267,8 @@ def _add_cells_columns(table: Table, texts: Texts, navigation: Navigation) -> No
     state_width = _column_width(state_title, _STATE_WIDTH)
     has_state = has_state_column(menu)
     # Sem a coluna do estado, o nome fica com o espaço dela, e a tabela mantém a largura
-    name_width = _NAME_WIDTH if has_state else _NAME_WIDTH + state_width + _COLUMN_PADDING
+    base_width = menu.name_width or _NAME_WIDTH
+    name_width = base_width if has_state else base_width + state_width + _COLUMN_PADDING
     table.add_column(
         _column_title(texts["table.program"], 0, sort),
         no_wrap=True,
