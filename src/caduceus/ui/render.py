@@ -58,6 +58,9 @@ BULLET = "•"
 _BODY_PADDING = (1, 0, 0, 2)
 # Linhas da tabela antes da primeira opção: a em branco, os títulos das colunas e o separador
 _TABLE_HEADER_LINES = 3
+# Larguras fixas das colunas da lista com células, para não mudarem ao deslocar a lista
+_STATE_WIDTH = 5
+_CELL_WIDTH = 10
 # O aviso de administrador fica ao nível dos títulos das colunas (a segunda linha do menu)
 _TABLE_WARNING_LINE = 2
 
@@ -191,9 +194,9 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
         box=box.SIMPLE_HEAD, pad_edge=False, header_style=f"bold {ACCENT}", padding=(0, 2, 0, 0)
     )
     table.add_column(texts["table.program"], no_wrap=True, overflow="ellipsis", width=MENU_WIDTH)
-    table.add_column(texts["table.state"], no_wrap=True)
+    table.add_column(texts["table.state"], no_wrap=True, width=_STATE_WIDTH)
     for column_key in menu.column_keys:
-        table.add_column(texts[column_key], justify="right", no_wrap=True)
+        table.add_column(texts[column_key], justify="right", no_wrap=True, width=_CELL_WIDTH)
     rows = _visible_rows(len(menu.items), navigation.index)
     for position in rows:
         item = menu.items[position]
