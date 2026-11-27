@@ -6,6 +6,7 @@ Só desenho: o cabeçalho, o menu atual, o aviso e a linha de teclas de controlo
 
 from rich import box
 from rich.console import Console, Group, RenderableType
+from rich.layout import Layout
 from rich.live import Live
 from rich.padding import Padding
 from rich.panel import Panel
@@ -54,6 +55,8 @@ RUN_ALL_MARK = "►"
 BULLET = "•"
 
 _BODY_PADDING = (1, 0, 0, 2)
+_HINTS_PADDING = (0, 0, 0, 2)
+_HEADER_LINES = max(len(LOGO_LINES), len(NAME_LINES) + 2)  # o nome, uma linha em branco e a versão
 # Linhas da tabela antes da primeira opção: a em branco, os títulos das colunas e o separador
 _TABLE_HEADER_LINES = 3
 # Larguras fixas das colunas da lista com células, para não mudarem ao deslocar a lista
@@ -212,9 +215,8 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
             *cells,
             style=SELECTED_STYLE if selected else ("dim" if blocked else ""),
         )
-    title = texts[menu.title_key]
-    if len(rows) < len(menu.items):
-        title += f"  ({rows.start + 1}-{rows.stop} / {len(menu.items)})"
+    found = sum(item.action is not None for item in menu.items)
+    title = f"{texts[menu.title_key]} ({found})"
     return Group(Text(title, style=f"bold {ACCENT}"), table)
 
 
@@ -263,7 +265,7 @@ def _render_hints(texts: Texts, shown: tuple[tuple[str, str], ...] = HINTS) -> R
             hints.append("   ")
         hints.append(key_label, style=f"bold {ACCENT}")
         hints.append(f" {texts[text_key]}")
-    return Padding(hints, _BODY_PADDING)
+    return Padding(hints, _HINTS_PADDING)
 
 
 def format_size(size: int) -> str:
@@ -383,7 +385,14 @@ def _render_confirmation(
 def _frame(
     texts: Texts, body: RenderableType, hints: tuple[tuple[str, str], ...] = HINTS
 ) -> RenderableType:
-    return Group(_render_header(texts), body, _render_hints(texts, hints))
+    # O cabeçalho no topo e as teclas na última linha, por mais que o corpo cresça ou encolha
+    layout = Layout()
+    layout.split_column(
+        Layout(_render_header(texts), size=_HEADER_LINES),
+        Layout(body),
+        Layout(_render_hints(texts, hints), size=1),
+    )
+    return layout
 
 
 def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:

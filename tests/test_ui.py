@@ -1,7 +1,12 @@
+import io
+from dataclasses import replace
+
 import pytest
+from rich.console import Console
 
 from caduceus.config import SELECTED_STYLE
-from caduceus.controllers.menus import MEMORY_MENU, MenuItem
+from caduceus.controllers.menus import MAIN_MENU, MEMORY_MENU, MenuItem, startup_menu
+from caduceus.controllers.navigation import Navigation
 from caduceus.settings import Settings
 from caduceus.ui import render
 from caduceus.ui.i18n import load_texts
@@ -57,3 +62,21 @@ def test_the_list_scrolls_to_keep_the_selected_row_visible(
     count: int, index: int, expected: range
 ) -> None:
     assert render._visible_rows(count, index) == expected
+
+
+def screen_lines(navigation: Navigation, height: int = 30) -> list[str]:
+    console = Console(width=120, height=height, record=True, file=io.StringIO())
+    console.print(render.render_screen(load_texts("en"), navigation))
+    return console.export_text().splitlines()
+
+
+def test_the_controls_stay_on_the_last_line_whatever_the_screen_shows() -> None:
+    main_menu = Navigation()
+    startup_list = Navigation(menus=(MAIN_MENU, startup_menu()), selected=(0, 0))
+    scrolled = replace(startup_list, selected=(0, len(startup_list.menu.items) - 1))
+
+    for navigation in (main_menu, startup_list, scrolled):
+        lines = screen_lines(navigation)
+
+        assert lines[-1].startswith("  ↑ Up")
+        assert len(lines) == 30
