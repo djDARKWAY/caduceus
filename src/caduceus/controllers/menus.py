@@ -94,6 +94,8 @@ class MenuItem:
     setting: str | None = None
     choice: tuple[str, bool] | None = None
     runs_all: bool = False
+    skips_slow: bool = False  # `runs_all` sem as ações marcadas como lentas
+    slow: bool = False  # ação demorada, que a versão rápida de `runs_all` salta
     state: Callable[[], bool] | None = None  # o estado ligado/desligado, mostrado ao lado do nome
     only_without_admin: bool = False  # só faz sentido sem administrador (fica esbatida com ele)
     label: str | None = None
@@ -171,6 +173,7 @@ CLEANUP_MENU = Menu(
             action=clean_components,
             description_key="cleanup.components.description",
             admin=AdminNeed.ALL,
+            slow=True,
         ),
         MenuItem(
             "cleanup.restore_points",
@@ -188,6 +191,7 @@ CLEANUP_MENU = Menu(
             risky=True,
             confirm_key="cleanup.windows_old.confirm",
             estimate=estimate_windows_old,
+            slow=True,
         ),
         # A reciclagem fica por último, para esvaziar também o que as limpezas anteriores lá deixem
         MenuItem(
@@ -195,6 +199,13 @@ CLEANUP_MENU = Menu(
             action=empty_recycle_bin,
             description_key="cleanup.recycle_bin.description",
             estimate=estimate_recycle_bin,
+        ),
+        MenuItem(
+            "cleanup.fast",
+            description_key="cleanup.fast.description",
+            admin=AdminNeed.SOME,
+            runs_all=True,
+            skips_slow=True,
         ),
         MenuItem(
             "cleanup.all",

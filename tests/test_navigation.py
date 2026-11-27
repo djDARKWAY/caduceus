@@ -20,7 +20,7 @@ from caduceus.controllers.navigation import (
     finish_estimates,
     press,
 )
-from caduceus.maintenance.actions import Outcome, Report
+from caduceus.maintenance.actions import Action, Outcome, Report
 from caduceus.maintenance.free_space.recycle_bin import empty_recycle_bin
 from caduceus.maintenance.free_space.temp_files import clean_temp_files
 from caduceus.maintenance.free_space.windows_old import clean_windows_old
@@ -211,7 +211,7 @@ def test_safe_mode_does_not_block_the_harmless_actions() -> None:
 
 
 def test_the_recycle_bin_runs_straight_away_even_with_safe_mode_on() -> None:
-    # Com o Modo seguro ligado, o cursor salta as opções arriscadas que vêm antes
+    # Com o Modo seguro ligado, o cursor salta as opÃ§Ãµes arriscadas que vÃªm antes
     moves = RECYCLE_BIN_OPTION - len([i for i in RISKY_OPTIONS if i < RECYCLE_BIN_OPTION])
     navigation = press_all(*CLEANUP_PATH, *[Key.DOWN] * moves, Key.ENTER, safe_mode=True)
 
@@ -306,6 +306,32 @@ def test_confirming_run_all_starts_one_combined_action() -> None:
 
     assert navigation.running is not None
     assert not navigation.confirming
+
+
+def test_fast_run_all_skips_the_slow_cleanups() -> None:
+    ran: list[str] = []
+
+    def action_named(name: str) -> Action:
+        def action(_report: Report) -> Outcome:
+            ran.append(name)
+            return Outcome(items=0, bytes_freed=0)
+
+        return action
+
+    menu = Menu(
+        "test",
+        (
+            MenuItem("quick", action=action_named("quick")),
+            MenuItem("slow", action=action_named("slow"), slow=True),
+            MenuItem("fast", runs_all=True, skips_slow=True),
+        ),
+    )
+
+    navigation = press(Navigation(menus=(menu,), selected=(2,)), Key.ENTER)
+    assert navigation.running is not None
+    navigation.running(lambda _: None)
+
+    assert ran == ["quick"]
 
 
 def test_after_run_all_every_estimate_is_calculated_again() -> None:

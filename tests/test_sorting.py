@@ -63,14 +63,13 @@ def test_the_column_keys_do_nothing_outside_the_tables() -> None:
     assert press(main_menu, Key.COLUMN_1) == main_menu
 
 
-def test_the_cursor_stays_on_its_option_and_then_follows_the_order_that_is_shown() -> None:
-    at_beta = press(table(("Beta", 300), ("Alpha", None), ("Gamma", 100)), Key.COLUMN_2)
+def test_the_cursor_goes_to_the_first_shown_row_and_then_follows_the_order_that_is_shown() -> None:
+    at_gamma = press(table(("Beta", 300), ("Alpha", None), ("Gamma", 100)), Key.COLUMN_2)
 
-    # Mostrado: Gamma, Beta, Alpha; o cursor ficou em Beta, a primeira do menu
-    assert shown(at_beta) == ["Gamma", "Beta", "Alpha"]
-    assert at_beta.item.label == "Beta"
-    assert press(at_beta, Key.DOWN).item.label == "Alpha"
-    assert press(at_beta, Key.UP).item.label == "Gamma"
+    assert shown(at_gamma) == ["Gamma", "Beta", "Alpha"]
+    assert at_gamma.item.label == "Gamma"
+    assert press(at_gamma, Key.DOWN).item.label == "Beta"
+    assert press(at_gamma, Key.UP).item.label == "Alpha"
 
 
 def test_sorting_never_changes_the_order_of_the_menu_itself() -> None:
@@ -104,8 +103,8 @@ def test_run_all_stays_last_and_the_cleanups_keep_the_order_they_run_in() -> Non
 
     sorted_down = press(press(navigation, Key.COLUMN_2), Key.COLUMN_2)
 
-    run_all = next(i for i, item in enumerate(CLEANUP_MENU.items) if item.runs_all)
-    assert display_order(sorted_down)[-1] == run_all
+    run_all = [i for i, item in enumerate(CLEANUP_MENU.items) if item.runs_all]
+    assert display_order(sorted_down)[-len(run_all) :] == run_all
     assert display_order(sorted_down)[0] != 0
     assert sorted_down.menu is CLEANUP_MENU
 
@@ -135,8 +134,7 @@ def test_after_an_uninstall_the_list_keeps_its_sort_and_the_cursor_its_place_in_
     parent = Menu("maintenance.title", (MenuItem("maintenance.uninstall", submenu_loader=loader),))
     opened = press(Navigation(menus=(MAIN_MENU, parent), selected=(0, 0)), Key.ENTER)
     by_size = press(opened, Key.COLUMN_2)  # mostrado: B, C, A
-    at_b = press(by_size, Key.DOWN)  # o cursor estava em A, a última: volta ao princípio
-    running = press(at_b, Key.ENTER)
+    running = press(by_size, Key.ENTER)  # o cursor foi para B, a primeira mostrada
     assert running.running is not None
     done = complete(running, running.running(lambda _step: None))
 
@@ -144,3 +142,14 @@ def test_after_an_uninstall_the_list_keeps_its_sort_and_the_cursor_its_place_in_
 
     assert shown(back) == ["C", "A"]
     assert back.item.label == "C"
+
+
+def test_sorting_moves_the_cursor_to_the_first_row_of_the_new_order() -> None:
+    estimates = {item.label_key: index for index, item in enumerate(CLEANUP_MENU.items)}
+    navigation = Navigation(
+        menus=(MAIN_MENU, CLEANUP_MENU), selected=(MAINTENANCE, 4), estimates=estimates
+    )
+
+    sorted_down = press(press(navigation, Key.COLUMN_2), Key.COLUMN_2)
+
+    assert sorted_down.index == display_order(sorted_down)[0]

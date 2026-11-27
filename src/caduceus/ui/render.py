@@ -4,6 +4,8 @@ Interface
 Só desenho: o cabeçalho, o menu atual, o aviso e a linha de teclas de controlo.
 """
 
+import shutil
+
 from rich import box
 from rich.console import Console, Group, RenderableType
 from rich.layout import Layout
@@ -28,6 +30,7 @@ from caduceus.config import (
     PROGRESS_WIDTH,
     SELECTED_STYLE,
     STARTUP_VISIBLE_ROWS,
+    WINDOW_LINES,
 )
 from caduceus.controllers.menus import MenuItem, item_label
 from caduceus.controllers.navigation import (
@@ -62,10 +65,15 @@ CONFIRM_HINTS = (("ENTER", "hint.confirm"), ("BACKSPACE", "hint.cancel"))
 
 NOT_COUNTED = "—"
 RUN_ALL_MARK = "►"
+RUN_FAST_MARK = "»"
 BULLET = "•"
 
 _BODY_PADDING = (1, 0, 0, 2)
 _HINTS_PADDING = (0, 0, 0, 2)
+_CONFIRM_PADDING = (1, 2)
+_PANEL_BORDER_LINES = 2
+_CONFIRM_TITLE_LINES = 2  # o título da opção e a linha em branco por baixo
+_CONFIRM_GAP_LINES = 1  # linha livre entre o quadro e as teclas
 _BOTTOM_MARGIN = 1  # linha livre por baixo das teclas (com texto, senão o Layout desenha um painel)
 _MODE_KEYS = ("mode.normal", "mode.administrator")
 _HEADER_PADDING = (1, 0, 0, 2)  # uma linha livre por cima e o mesmo recuo do corpo à esquerda
@@ -199,18 +207,21 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
         min_width=_column_width(gain_title, 0),
     )
     items = navigation.menu.items
-    total = sum(
-        navigation.estimates.get(item.label_key) or 0
-        for item in items
-        if not is_blocked(navigation, item)
-    )
     for index in display_order(navigation):
         item = items[index]
         selected = index == navigation.index
         if item.runs_all:
-            table.add_section()
-            style = f"bold white on {ACCENT}" if selected else f"bold {ACCENT}"
-            title = Text(f" {RUN_ALL_MARK} {item_label(texts, item)}")
+            total = sum(
+                navigation.estimates.get(other.label_key) or 0
+                for other in items
+                if not is_blocked(navigation, other) and not (item.skips_slow and other.slow)
+            )
+            if not items[index - 1].runs_all:
+                table.add_section()
+            weight = "" if item.skips_slow else "bold "
+            style = f"bold white on {ACCENT}" if selected else f"{weight}{ACCENT}"
+            mark = RUN_FAST_MARK if item.skips_slow else RUN_ALL_MARK
+            title = Text(f" {mark} {item_label(texts, item)}")
             table.add_row(title, format_estimate(total), style=style)
             continue
         blocked = is_blocked(navigation, item)
@@ -455,24 +466,50 @@ def _render_outcome(texts: Texts, title: str, outcome: Outcome) -> RenderableTyp
     return Padding(Group(Text(title, style=f"bold {ACCENT}"), body), _BODY_PADDING)
 
 
+def _confirm_content_lines() -> int:
+    """As linhas de conteúdo do quadro que o corpo comporta na altura real do terminal."""
+    reserved = (
+        _HEADER_LINES
+        + 1  # as teclas
+        + _BOTTOM_MARGIN
+        + _BODY_PADDING[0]
+        + _CONFIRM_TITLE_LINES
+        + _CONFIRM_GAP_LINES
+        + _PANEL_BORDER_LINES
+        + 2 * _CONFIRM_PADDING[0]
+    )
+    return shutil.get_terminal_size((CONFIRM_WIDTH, WINDOW_LINES)).lines - reserved
+
+
+def _fit_in_panel(warning: list[RenderableType], lines: list[Text]) -> list[RenderableType]:
+    """As linhas que cabem por baixo do aviso, com uma linha livre até às teclas; se não couberem
+    todas, as últimas são trocadas por «...»."""
+    inner_width = CONFIRM_WIDTH - 2 - 2 * _CONFIRM_PADDING[1]
+    used = len(Console(width=inner_width).render_lines(Group(*warning), pad=False))
+    free = _confirm_content_lines() - used
+    if len(lines) <= free:
+        return list(lines)
+    return [*lines[: max(free - 1, 0)], Text("  ...", style=WARNING)]
+
+
 def _render_confirmation(
     texts: Texts, navigation: Navigation, item: MenuItem, confirm_key: str
 ) -> RenderableType:
     warning: list[RenderableType] = [Text(texts[confirm_key], style="bold")]
     skipped = [
-        item_label(texts, other)
+        Text(f"  {BULLET} {item_label(texts, other)}", style=WARNING)
         for other in navigation.menu.items
-        if item.runs_all and is_blocked(navigation, other)
+        if item.runs_all and is_blocked(navigation, other) and not (item.skips_slow and other.slow)
     ]
     if skipped:
         warning += [Text(""), Text(texts["confirm.skipped"], style=WARNING)]
-        warning += [Text(f"  {BULLET} {name}", style=WARNING) for name in skipped]
+        warning += _fit_in_panel(warning, skipped)
     panel = Panel(
         Group(*warning),
         title=Text(f" {texts['confirm.title']} ", style=f"bold {ACCENT}"),
         border_style=ACCENT,
         box=box.HEAVY,
-        padding=(1, 2),
+        padding=_CONFIRM_PADDING,
         width=CONFIRM_WIDTH,
     )
     title = Text(item_label(texts, item), style=f"bold {ACCENT}")

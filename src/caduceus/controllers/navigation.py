@@ -156,7 +156,9 @@ def _action_for(navigation: Navigation, item: MenuItem) -> Action | None:
         [
             (other.label_key, other.admin is not None, other.action)
             for other in navigation.menu.items
-            if other.action is not None and not is_blocked(navigation, other)
+            if other.action is not None
+            and not is_blocked(navigation, other)
+            and not (item.skips_slow and other.slow)
         ]
     )
 
@@ -175,12 +177,23 @@ def _move(navigation: Navigation, step: int) -> Navigation:
 
 
 def _sort(navigation: Navigation, column: int) -> Navigation:
-    """Ordena a coluna de A a Z (ou por ordem crescente); a mesma tecla outra vez inverte."""
+    """Ordena a coluna de A a Z (ou por ordem crescente); a mesma tecla outra vez inverte. O cursor
+    vai para a primeira opção que se pode escolher na nova ordem."""
     if column >= column_count(navigation.menu):
         return navigation
     current = navigation.sort
     descending = current is not None and current.column == column and not current.descending
-    return replace(navigation, sort=Sort(column, descending))
+    sorted_navigation = replace(navigation, sort=Sort(column, descending))
+    items = sorted_navigation.menu.items
+    first = next(
+        (
+            i
+            for i in display_order(sorted_navigation)
+            if not is_blocked(sorted_navigation, items[i])
+        ),
+        sorted_navigation.index,
+    )
+    return replace(sorted_navigation, selected=(*navigation.selected[:-1], first))
 
 
 def _enter(navigation: Navigation) -> Navigation:
