@@ -3,15 +3,18 @@ Aplicação
 
 Liga as peças: lê uma tecla, atualiza a navegação e redesenha, até o utilizador sair. Uma opção
 com ação corre logo ao ser escolhida, com a barra de progresso, e o resultado aparece no fim.
+Enquanto a ação corre nenhum controlo funciona: as teclas carregadas são descartadas e o Ctrl+C
+é ignorado.
 """
 
+import signal
 import time
 
 from rich.console import Console
 from rich.live import Live
 
 from caduceus.config import PROGRESS_REFRESH_SECONDS
-from caduceus.controllers.keys import read_key
+from caduceus.controllers.keys import discard_pending_keys, read_key
 from caduceus.controllers.navigation import Navigation, complete, press
 from caduceus.maintenance.actions import Step
 from caduceus.ui.i18n import Texts
@@ -30,7 +33,13 @@ def _run_action(display: Live, texts: Texts, navigation: Navigation) -> Navigati
             last_shown = now
             show_progress(display, texts, navigation, step)
 
-    return complete(navigation, navigation.running(report))
+    previous_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        outcome = navigation.running(report)
+    finally:
+        signal.signal(signal.SIGINT, previous_handler)
+        discard_pending_keys()
+    return complete(navigation, outcome)
 
 
 def run(console: Console, texts: Texts) -> None:
