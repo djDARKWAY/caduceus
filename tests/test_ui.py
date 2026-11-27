@@ -1,7 +1,7 @@
 import pytest
 
 from caduceus.config import SELECTED_STYLE
-from caduceus.controllers.menus import MEMORY_MENU
+from caduceus.controllers.menus import MEMORY_MENU, MenuItem
 from caduceus.settings import Settings
 from caduceus.ui import render
 from caduceus.ui.i18n import load_texts
@@ -39,3 +39,21 @@ def test_an_option_blocked_by_safe_mode_is_shown_dimmed_even_when_selected() -> 
 
     assert render._render_option(texts, item, True, Settings(), blocked=True).style == "dim"
     assert render._render_option(texts, item, True, Settings()).style == SELECTED_STYLE
+
+
+def test_an_option_created_at_runtime_shows_its_own_name() -> None:
+    texts = load_texts("en")
+    item = MenuItem("startup:run_user:Example", label="Example app")
+
+    assert render.item_label(texts, item) == "Example app"
+    assert render.item_label(texts, MenuItem("menu.exit")) == texts["menu.exit"]
+
+
+@pytest.mark.parametrize(
+    ("count", "index", "expected"),
+    [(5, 4, range(0, 5)), (30, 0, range(0, 10)), (30, 15, range(10, 20)), (30, 29, range(20, 30))],
+)
+def test_the_list_scrolls_to_keep_the_selected_row_visible(
+    count: int, index: int, expected: range
+) -> None:
+    assert render._visible_rows(count, index) == expected

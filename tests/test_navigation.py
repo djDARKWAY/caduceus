@@ -279,7 +279,8 @@ def test_after_run_all_every_estimate_is_calculated_again() -> None:
 
 
 def hibernation_menu(is_on: bool) -> Navigation:
-    item = replace(next(i for i in MEMORY_MENU.items), state=lambda: is_on)
+    hibernation = next(i for i in MEMORY_MENU.items if i.label_key == "memory.hibernation")
+    item = replace(hibernation, state=lambda: is_on)
     menu = replace(MEMORY_MENU, items=(item,))
     return Navigation(menus=(MAIN_MENU, menu), selected=(0, 0), settings=Settings(safe_mode=False))
 
@@ -300,3 +301,48 @@ def test_safe_mode_blocks_hibernation_in_both_directions(is_on: bool) -> None:
     navigation = replace(hibernation_menu(is_on), settings=Settings(safe_mode=True))
 
     assert press(navigation, Key.ENTER) == navigation
+
+
+def instant_menu(outcome: Outcome) -> Navigation:
+    from caduceus.controllers.menus import Menu, MenuItem
+
+    item = MenuItem("startup:test", label="Example", action=lambda _report: outcome, instant=True)
+    return Navigation(menus=(MAIN_MENU, Menu("startup.title", (item,))), selected=(0, 0))
+
+
+def test_an_instant_action_that_works_goes_straight_back_to_the_list() -> None:
+    running = press(instant_menu(Outcome(0, 0)), Key.ENTER)
+    assert running.running is not None
+
+    done = complete(running, Outcome(0, 0))
+
+    assert done.running is None
+    assert done.outcome is None
+
+
+def test_an_instant_action_that_goes_wrong_shows_its_result() -> None:
+    running = press(instant_menu(Outcome(0, 0)), Key.ENTER)
+
+    done = complete(running, Outcome(0, 0, admin_required=("Example",)))
+
+    assert done.outcome is not None
+
+
+def test_a_menu_created_when_it_is_opened_is_loaded_on_every_entry() -> None:
+    from caduceus.controllers.menus import Menu, MenuItem
+
+    loaded: list[str] = []
+
+    def loader() -> Menu:
+        loaded.append("loaded")
+        return Menu("startup.title", (MenuItem("startup.none"),))
+
+    parent = Menu("memory.title", (MenuItem("memory.startup", submenu_loader=loader),))
+    navigation = Navigation(menus=(MAIN_MENU, parent), selected=(0, 0))
+
+    opened = press(navigation, Key.ENTER)
+    reopened = press(press(opened, Key.BACK), Key.ENTER)
+
+    assert opened.menu.title_key == "startup.title"
+    assert reopened.menu.title_key == "startup.title"
+    assert loaded == ["loaded", "loaded"]

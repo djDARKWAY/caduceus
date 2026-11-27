@@ -81,4 +81,20 @@ def test_every_text_the_screens_use_exists(language: str) -> None:
     used |= {"result.items", "result.freed"}
     used |= {"result.admin", "result.failures", "result.category", "result.total", "admin.tag"}
     used |= {"components.step", "windows_old.step", "restore_points.step", "hibernation.step"}
+    used |= {
+        "startup.title",
+        "startup.column.memory",
+        "startup.column.impact",
+        "startup.none",
+        "startup.none.description",
+        "startup.source.run_user",
+        "startup.source.run_machine",
+        "startup.source.folder_user",
+        "startup.source.folder_machine",
+        "impact.low",
+        "impact.medium",
+        "impact.high",
+        "table.program",
+        "table.state",
+    }
     assert all(texts.get(key) for key in used)

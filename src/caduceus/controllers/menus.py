@@ -5,8 +5,8 @@ Estrutura dos menus, só dados: que menus existem e que opções cada um tem. Os
 ficheiros de idiomas, pelas chaves aqui indicadas. Juntar um menu ou uma opção é juntar dados.
 """
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from enum import Enum
 
 from caduceus.maintenance.actions import Action, Estimator
@@ -31,6 +31,14 @@ from caduceus.maintenance.free_space.temp_files import clean_temp_files, estimat
 from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, estimate_windows_logs
 from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
 from caduceus.maintenance.memory.hibernation import is_hibernation_on, toggle_hibernation
+from caduceus.maintenance.memory.startup_programs import (
+    StartupEntry,
+    StartupSource,
+    impact_of,
+    is_enabled,
+    list_startup_entries,
+    toggle_startup,
+)
 
 
 class AdminNeed(Enum):
@@ -47,7 +55,11 @@ class AdminNeed(Enum):
 # `setting`, o nome da definição que a opção liga ou desliga; `runs_all`, a opção que corre todas as
 # ações do menu que o Modo seguro deixa correr; `state`, o estado atual (ligado ou desligado) que a
 # ação inverte, mostrado ao lado do nome. O aviso de `confirm_key` só aparece quando o estado é
-# ligado (a direção que pode ter consequências).
+# ligado (a direção que pode ter consequências). `label`, `description_values` e `cells` são para as
+# opções que se criam ao abrir o menu: o nome (em vez de `label_key`), os valores que completam o
+# texto da descrição e as colunas da tabela (um número é uma memória em bytes, um texto é a chave
+# de um texto traduzido, e None é «não se sabe»); `submenu_loader`, o que cria o submenu ao entrar
+# nele; `instant`, as ações tão rápidas que só mostram o resultado se algo correr mal.
 @dataclass(frozen=True)
 class MenuItem:
     label_key: str
@@ -62,12 +74,19 @@ class MenuItem:
     setting: str | None = None
     runs_all: bool = False
     state: Callable[[], bool] | None = None
+    label: str | None = None
+    description_values: Mapping[str, str] = field(default_factory=dict)
+    cells: tuple[int | str | None, ...] = ()
+    submenu_loader: Callable[[], "Menu"] | None = None
+    instant: bool = False
 
 
+# `column_keys` são os títulos das colunas das células das opções, quando o menu é uma tabela
 @dataclass(frozen=True)
 class Menu:
     title_key: str
     items: tuple[MenuItem, ...]
+    column_keys: tuple[str, ...] = ()
 
 
 CLEANUP_MENU = Menu(
@@ -158,9 +177,48 @@ CLEANUP_MENU = Menu(
     ),
 )
 
+_SOURCE_DESCRIPTIONS = {
+    StartupSource.RUN_USER: "startup.source.run_user",
+    StartupSource.RUN_MACHINE: "startup.source.run_machine",
+    StartupSource.RUN_MACHINE_32: "startup.source.run_machine",
+    StartupSource.FOLDER_USER: "startup.source.folder_user",
+    StartupSource.FOLDER_MACHINE: "startup.source.folder_machine",
+}
+
+
+def _startup_item(entry: StartupEntry) -> MenuItem:
+    impact = impact_of(entry.memory_bytes)
+    return MenuItem(
+        f"startup:{entry.source.value}:{entry.name}",
+        label=entry.label,
+        action=toggle_startup(entry),
+        state=lambda: is_enabled(entry),
+        description_key=_SOURCE_DESCRIPTIONS[entry.source],
+        description_values={"command": entry.command or "-"},
+        admin=AdminNeed.ALL if entry.needs_admin else None,
+        cells=(entry.memory_bytes, f"impact.{impact}" if impact else None),
+        instant=True,
+    )
+
+
+def startup_menu() -> Menu:
+    """O menu dos programas de arranque, criado a partir do que o Windows tem registado agora."""
+    items = tuple(_startup_item(entry) for entry in list_startup_entries())
+    return Menu(
+        "startup.title",
+        items or (MenuItem("startup.none", description_key="startup.none.description"),),
+        ("startup.column.memory", "startup.column.impact"),
+    )
+
+
 MEMORY_MENU = Menu(
     "memory.title",
     (
+        MenuItem(
+            "memory.startup",
+            submenu_loader=startup_menu,
+            description_key="memory.startup.description",
+        ),
         MenuItem(
             "memory.hibernation",
             action=toggle_hibernation,

@@ -27,6 +27,7 @@ from caduceus.config import (
     PROGRESS_REFRESH_RATE,
     PROGRESS_WIDTH,
     SELECTED_STYLE,
+    STARTUP_VISIBLE_ROWS,
 )
 from caduceus.controllers.menus import MenuItem
 from caduceus.controllers.navigation import Navigation, is_blocked
@@ -76,6 +77,10 @@ def _render_header(texts: Texts) -> RenderableType:
     return header
 
 
+def item_label(texts: Texts, item: MenuItem) -> str:
+    return item.label if item.label is not None else texts[item.label_key]
+
+
 def _is_on(item: MenuItem, settings: Settings) -> bool | None:
     """O estado ligado/desligado que a opção mostra, ou None se a opção não tem estado."""
     if item.setting is not None:
@@ -87,7 +92,7 @@ def _render_option(
     texts: Texts, item: MenuItem, is_selected: bool, settings: Settings, blocked: bool = False
 ) -> Text:
     style = "dim" if blocked else (SELECTED_STYLE if is_selected else "")
-    option = Text(f" {texts[item.label_key]} ", style=style)
+    option = Text(f" {item_label(texts, item)} ", style=style)
     is_on = _is_on(item, settings)
     if is_on is not None:
         option.append(
@@ -109,7 +114,7 @@ def _render_description(description: str) -> list[RenderableType]:
             continue
         item = Table.grid(padding=(0, 1, 0, 0))
         item.add_column(no_wrap=True)
-        item.add_column()
+        item.add_column(overflow="fold")
         item.add_row(Text(BULLET, style=DETAIL_STYLE), Text(line[2:], style=DETAIL_STYLE))
         lines.append(item)
     return lines
@@ -127,7 +132,7 @@ def _render_detail(
         lines.append(Text(texts[item.admin.value], style=WARNING))
     lines += [Text("") for _ in range(description_line - len(lines))]
     description = texts[item.description_key].format(
-        cleanup_age=CLEANUP_MIN_AGE_HOURS, log_age=LOG_MIN_AGE_HOURS
+        cleanup_age=CLEANUP_MIN_AGE_HOURS, log_age=LOG_MIN_AGE_HOURS, **item.description_values
     )
     lines += _render_description(description)
     return Group(*lines)
@@ -156,21 +161,65 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
         if item.runs_all:
             table.add_section()
             style = f"bold white on {ACCENT}" if selected else f"bold {ACCENT}"
-            title = Text(f" {RUN_ALL_MARK} {texts[item.label_key]}")
+            title = Text(f" {RUN_ALL_MARK} {item_label(texts, item)}")
             table.add_row(title, format_estimate(total), style=style)
             continue
         blocked = is_blocked(navigation, item)
         estimate = navigation.estimates.get(item.label_key)
         table.add_row(
-            Text(f" {texts[item.label_key]}"),
+            Text(f" {item_label(texts, item)}"),
             format_estimate(estimate),
             style=SELECTED_STYLE if selected else ("dim" if blocked else ""),
         )
     return table
 
 
+def _cell_text(texts: Texts, cell: int | str | None) -> str:
+    return texts[cell] if isinstance(cell, str) else format_estimate(cell)
+
+
+def _visible_rows(count: int, index: int) -> range:
+    """As linhas da lista que cabem no ecrã, com a selecionada lá dentro (a meio, se possível)."""
+    start = min(max(index - STARTUP_VISIBLE_ROWS // 2, 0), max(count - STARTUP_VISIBLE_ROWS, 0))
+    return range(start, min(start + STARTUP_VISIBLE_ROWS, count))
+
+
+def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
+    """Os menus cujas opções têm colunas (os programas de arranque): nome, estado e as células."""
+    menu = navigation.menu
+    table = Table(
+        box=box.SIMPLE_HEAD, pad_edge=False, header_style=f"bold {ACCENT}", padding=(0, 2, 0, 0)
+    )
+    table.add_column(texts["table.program"], no_wrap=True, overflow="ellipsis", width=MENU_WIDTH)
+    table.add_column(texts["table.state"], no_wrap=True)
+    for column_key in menu.column_keys:
+        table.add_column(texts[column_key], justify="right", no_wrap=True)
+    rows = _visible_rows(len(menu.items), navigation.index)
+    for position in rows:
+        item = menu.items[position]
+        selected = position == navigation.index
+        is_on = _is_on(item, navigation.settings)
+        state = Text("" if is_on is None else texts["setting.on" if is_on else "setting.off"])
+        if not selected and is_on is not None:
+            state.stylize(ACCENT if is_on else DANGER)
+        cells = [_cell_text(texts, cell) for cell in item.cells]
+        cells += [""] * (len(menu.column_keys) - len(cells))
+        table.add_row(
+            Text(f" {item_label(texts, item)}"),
+            state,
+            *cells,
+            style=SELECTED_STYLE if selected else "",
+        )
+    title = texts[menu.title_key]
+    if len(rows) < len(menu.items):
+        title += f"  ({rows.start + 1}-{rows.stop} / {len(menu.items)})"
+    return Group(Text(title, style=f"bold {ACCENT}"), table)
+
+
 def _render_options(texts: Texts, navigation: Navigation) -> tuple[RenderableType, int]:
     """As opções do menu e as linhas que ocupam antes da primeira (para alinhar a descrição)."""
+    if navigation.menu.column_keys:
+        return _render_cells_table(texts, navigation), _TABLE_HEADER_LINES
     title = Text(texts[navigation.menu.title_key], style=f"bold {ACCENT}")
     if any(item.estimate is not None for item in navigation.menu.items):
         return Group(title, _render_estimates_table(texts, navigation)), _TABLE_HEADER_LINES
@@ -310,7 +359,7 @@ def _render_confirmation(
 ) -> RenderableType:
     warning: list[RenderableType] = [Text(texts[confirm_key], style="bold")]
     skipped = [
-        texts[other.label_key]
+        item_label(texts, other)
         for other in navigation.menu.items
         if item.runs_all and is_blocked(navigation, other)
     ]
@@ -325,7 +374,7 @@ def _render_confirmation(
         padding=(1, 2),
         width=CONFIRM_WIDTH,
     )
-    title = Text(texts[item.label_key], style=f"bold {ACCENT}")
+    title = Text(item_label(texts, item), style=f"bold {ACCENT}")
     return Padding(Group(title, Text(""), panel), _BODY_PADDING)
 
 
@@ -346,14 +395,18 @@ def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
             CONFIRM_HINTS,
         )
     if navigation.outcome is not None:
-        title = texts[navigation.item.label_key]
+        title = item_label(texts, navigation.item)
         return _frame(texts, _render_outcome(texts, title, navigation.outcome), OUTCOME_HINTS)
     return _frame(texts, _render_menu(texts, navigation))
 
 
 def render_progress(texts: Texts, navigation: Navigation, step: Step) -> RenderableType:
-    title_key = navigation.menu.title_key if navigation.estimating else navigation.item.label_key
-    body = _render_progress(texts, texts[title_key], step)
+    title = (
+        texts[navigation.menu.title_key]
+        if navigation.estimating
+        else item_label(texts, navigation.item)
+    )
+    body = _render_progress(texts, title, step)
     return Group(_render_header(texts), body)
 
 

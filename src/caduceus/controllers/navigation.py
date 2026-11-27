@@ -97,16 +97,17 @@ def _enter(navigation: Navigation) -> Navigation:
         if item.confirm_key is not None and (item.state is None or item.state()):
             return replace(navigation, confirming=True)
         return replace(navigation, running=_action_for(navigation, item))
-    if item.submenu is not None:
+    submenu = item.submenu_loader() if item.submenu_loader is not None else item.submenu
+    if submenu is not None:
         first = next(
-            (i for i, other in enumerate(item.submenu.items) if not is_blocked(navigation, other)),
+            (i for i, other in enumerate(submenu.items) if not is_blocked(navigation, other)),
             0,
         )
         return replace(
             navigation,
-            menus=(*navigation.menus, item.submenu),
+            menus=(*navigation.menus, submenu),
             selected=(*navigation.selected, first),
-            to_estimate=_estimable(item.submenu),
+            to_estimate=_estimable(submenu),
             estimates={},
         )
     return replace(navigation, notice=NOT_AVAILABLE_NOTICE)
@@ -160,4 +161,7 @@ def finish_estimates(navigation: Navigation, estimates: Mapping[str, int | None]
 
 
 def complete(navigation: Navigation, outcome: Outcome) -> Navigation:
+    went_wrong = bool(outcome.failures or outcome.admin_required)
+    if navigation.item.instant and not went_wrong:
+        return replace(navigation, running=None)
     return replace(navigation, running=None, outcome=outcome)
