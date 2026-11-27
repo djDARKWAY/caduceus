@@ -1,5 +1,5 @@
 from caduceus.maintenance.actions import Outcome, Report, Row, Step
-from caduceus.maintenance.run_all import run_all
+from caduceus.maintenance.free_space.run_all import run_all
 
 
 def test_every_action_runs_in_order_and_the_outcome_has_one_row_each() -> None:

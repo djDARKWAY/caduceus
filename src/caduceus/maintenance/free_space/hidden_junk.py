@@ -7,7 +7,7 @@ hardware em `LiveKernelReports`).
 """
 
 from caduceus.maintenance.actions import Outcome, Report
-from caduceus.maintenance.cleaner import Location, clean_locations, estimate_locations
+from caduceus.maintenance.free_space.cleaner import Location, clean_locations, estimate_locations
 
 LOCATIONS = (
     Location(

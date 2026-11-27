@@ -1,5 +1,6 @@
 """
 Manutenção manual
 
-Uma pasta para tudo o que pertence à Manutenção manual, com um ficheiro por funcionalidade.
+Uma pasta por tipo de manutenção, com um ficheiro por funcionalidade: `free_space/` (libertar
+espaço) e `system_tweaks/` (ajustes ao sistema). Aqui ficam só as peças comuns a todas as ações.
 """

@@ -1,7 +1,7 @@
 import pytest
 
-from caduceus.maintenance import recycle_bin
 from caduceus.maintenance.actions import Step
+from caduceus.maintenance.free_space import recycle_bin
 
 
 @pytest.fixture

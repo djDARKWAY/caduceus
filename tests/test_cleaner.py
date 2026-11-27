@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from caduceus.maintenance import cleaner
 from caduceus.maintenance.actions import Outcome, Step
-from caduceus.maintenance.cleaner import Location, clean_locations, estimate_locations
+from caduceus.maintenance.free_space import cleaner
+from caduceus.maintenance.free_space.cleaner import Location, clean_locations, estimate_locations
 
 
 @pytest.fixture(autouse=True)
@@ -15,7 +15,7 @@ def administrator(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cleaner, "is_admin", lambda: True)
 
 
-def write(path: Path, size: int = 10, age_hours: int = 0) -> None:
+def write(path: Path, size: int = 10, age_hours: int = 48) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"x" * size)
     if age_hours:
@@ -286,3 +286,12 @@ def test_a_folder_found_by_a_star_that_is_a_junction_is_refused(tmp_path: Path) 
 
     assert outcome.failures == (str(profiles / "Default" / "Cache"),)
     assert (outside / "Cache" / "keep.bin").exists()
+
+
+def test_files_newer_than_the_default_window_are_kept_without_asking(tmp_path: Path) -> None:
+    write(tmp_path / "just-created.tmp", age_hours=0)
+
+    outcome = clean(Location(str(tmp_path), "category.test"))
+
+    assert outcome.items == 0
+    assert (tmp_path / "just-created.tmp").exists()

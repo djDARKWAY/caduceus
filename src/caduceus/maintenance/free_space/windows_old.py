@@ -11,26 +11,20 @@ libertado mede-se pela diferença de espaço livre no disco do sistema. Exige ad
 
 import os
 import re
-import shutil
-import subprocess
-import time
 import winreg
 from pathlib import Path
 
-from caduceus.maintenance.actions import Outcome, Report, Row, Step
+from caduceus.maintenance.actions import Outcome, Report, Row
 from caduceus.maintenance.admin import is_admin
-from caduceus.maintenance.cleaner import folder_size
+from caduceus.maintenance.free_space.cleaner import folder_size
+from caduceus.maintenance.system_tool import free_bytes, run_system_tool
 
 _FOLDER = r"%SystemDrive%\Windows.old"
-_CLEANMGR = r"%WINDIR%\System32\cleanmgr.exe"
 _HANDLERS_KEY = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches"
 _HANDLER_KEY = _HANDLERS_KEY + r"\Previous Installations"
 _PROFILE_FLAGS = re.compile(r"StateFlags(\d{4})")
 _PROFILES = range(6471, 10000)  # os números de perfil do `/sagerun` têm quatro dígitos
 _FLAG_RUN_HANDLER = 2
-_POLL_SECONDS = 0.2
-# Grupo de processos próprio: o Ctrl+C não chega ao Limpeza de Disco, que não deve ser interrompido
-_NO_CONTROLS = subprocess.CREATE_NEW_PROCESS_GROUP
 
 
 def _profiles_in_use() -> set[int]:
@@ -54,20 +48,15 @@ def free_profile(used: set[int]) -> int:
     raise OSError("sem perfis de limpeza livres")
 
 
-def _run_cleanmgr(report: Report) -> None:
+def _run_cleanmgr(report: Report) -> bool:
     profile = free_profile(_profiles_in_use())
     flags = f"StateFlags{profile:04d}"
     with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _HANDLER_KEY, 0, winreg.KEY_SET_VALUE) as key:
         winreg.SetValueEx(key, flags, 0, winreg.REG_DWORD, _FLAG_RUN_HANDLER)
         try:
-            process = subprocess.Popen(
-                [os.path.expandvars(_CLEANMGR), f"/sagerun:{profile}"],
-                stdin=subprocess.DEVNULL,
-                creationflags=_NO_CONTROLS,
+            return run_system_tool(
+                "cleanmgr.exe", [f"/sagerun:{profile}"], report, "windows_old.step"
             )
-            while process.poll() is None:
-                report(Step("windows_old.step", 0, 0))
-                time.sleep(_POLL_SECONDS)
         finally:
             winreg.DeleteValue(key, flags)
 
@@ -85,12 +74,11 @@ def clean_windows_old(report: Report) -> Outcome:
         return Outcome(0, 0)
     if not is_admin():
         return Outcome(0, 0, admin_required=(str(folder),))
-    free_before = shutil.disk_usage(folder.anchor).free
     try:
-        _run_cleanmgr(report)
+        free_before = free_bytes()
+        if not _run_cleanmgr(report) or folder.exists():
+            return Outcome(0, 0, failures=(str(folder),))
+        freed = max(0, free_bytes() - free_before)
     except OSError:
         return Outcome(0, 0, failures=(str(folder),))
-    if folder.exists():
-        return Outcome(0, 0, failures=(str(folder),))
-    freed = max(0, shutil.disk_usage(folder.anchor).free - free_before)
     return Outcome(0, freed, rows=(Row("category.windows_old", None, freed, needs_admin=True),))
