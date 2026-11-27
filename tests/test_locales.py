@@ -6,7 +6,7 @@ import pytest
 
 from caduceus.controllers.menus import MAIN_MENU, Menu
 from caduceus.ui.assets import NAME_WIDTH
-from caduceus.ui.render import CONFIRM_HINTS, HINTS, OUTCOME_HINTS, VERSION_LABEL
+from caduceus.ui.render import CONFIRM_HINTS, HINTS, NOTICE_HINTS, OUTCOME_HINTS, VERSION_LABEL
 
 LOCALES_DIR = Path(__file__).parent.parent / "src" / "caduceus" / "ui" / "locales"
 LANGUAGES = sorted(path.stem for path in LOCALES_DIR.glob("*.json"))
@@ -60,13 +60,14 @@ def test_tagline_fits_beside_the_version_under_the_banner(language: str) -> None
 def test_every_text_the_screens_use_exists(language: str) -> None:
     texts = read_locale(language)
     used = menu_text_keys(MAIN_MENU) | {
-        text_key for _, text_key in HINTS + OUTCOME_HINTS + CONFIRM_HINTS
+        text_key for _, text_key in HINTS + OUTCOME_HINTS + CONFIRM_HINTS + NOTICE_HINTS
     }
     used |= {
         "app.tagline",
         "notice.not_available",
         "recycle_bin.step",
         "cleaning.step",
+        "action.step",
         "estimate.step",
         "setting.on",
         "setting.off",
@@ -79,5 +80,5 @@ def test_every_text_the_screens_use_exists(language: str) -> None:
     }
     used |= {"result.items", "result.freed"}
     used |= {"result.admin", "result.failures", "result.category", "result.total", "admin.tag"}
-    used |= {"components.step", "windows_old.step"}
+    used |= {"components.step", "windows_old.step", "restore_points.step", "hibernation.step"}
     assert all(texts.get(key) for key in used)

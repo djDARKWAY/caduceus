@@ -5,8 +5,9 @@ Lógica pura da navegação nos menus: dado o estado e uma tecla, devolve o novo
 estimativas (o da limpeza) calcula-as ao abrir e, depois de cada ação, só a dessa ação. Uma opção
 bloqueada pelo Modo seguro não se pode selecionar: o cursor salta-a. Com o resultado de uma ação
 no ecrã, só o ENTER faz alguma coisa (volta ao menu); com um pedido de confirmação, só o ENTER
-(confirma) e o BACKSPACE (cancela). Não lê teclas, não desenha e não corre ações: quando uma opção
-tem ação, o estado fica com `running` e é a aplicação que a corre e depois chama `complete`.
+(confirma) e o BACKSPACE (cancela); com um aviso, só o BACKSPACE (volta) e o Q (sai). Não lê
+teclas, não desenha e não corre ações: quando uma opção tem ação, o estado fica com `running` e
+é a aplicação que a corre e depois chama `complete`.
 """
 
 from collections.abc import Mapping
@@ -15,7 +16,7 @@ from dataclasses import dataclass, field, replace
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import MAIN_MENU, Menu, MenuItem
 from caduceus.maintenance.actions import Action, Outcome
-from caduceus.maintenance.run_all import run_all
+from caduceus.maintenance.free_space.run_all import run_all
 from caduceus.settings import Settings
 
 NOT_AVAILABLE_NOTICE = "notice.not_available"
@@ -142,7 +143,7 @@ def press(navigation: Navigation, key: Key) -> Navigation:
     if key is Key.QUIT:
         return replace(navigation, finished=True)
     if navigation.notice is not None:
-        return replace(navigation, notice=None)
+        return replace(navigation, notice=None) if key is Key.BACK else navigation
     if key is Key.UP:
         return _move(navigation, -1)
     if key is Key.DOWN:

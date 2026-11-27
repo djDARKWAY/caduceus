@@ -11,12 +11,16 @@ from caduceus.controllers.navigation import (
     press,
 )
 from caduceus.maintenance.actions import Outcome
-from caduceus.maintenance.recycle_bin import empty_recycle_bin
-from caduceus.maintenance.temp_files import clean_temp_files
-from caduceus.maintenance.windows_old import clean_windows_old
+from caduceus.maintenance.free_space.recycle_bin import empty_recycle_bin
+from caduceus.maintenance.free_space.temp_files import clean_temp_files
+from caduceus.maintenance.free_space.windows_old import clean_windows_old
 from caduceus.settings import Settings
 
 SCAN, MAINTENANCE, _SETTINGS, EXIT = range(4)
+WINDOWS_OLD_OPTION = next(
+    index for index, item in enumerate(CLEANUP_MENU.items) if item.action is clean_windows_old
+)
+RISKY_OPTIONS = {index for index, item in enumerate(CLEANUP_MENU.items) if item.risky}
 
 
 def press_all(*keys: Key, safe_mode: bool = False) -> Navigation:
@@ -47,7 +51,7 @@ def test_enter_on_manual_maintenance_opens_its_menu() -> None:
     assert navigation.index == 0
 
 
-def test_enter_on_pc_cleanup_opens_the_cleanup_menu() -> None:
+def test_enter_on_free_up_space_opens_the_cleanup_menu() -> None:
     navigation = press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER)
     assert navigation.menu is CLEANUP_MENU
 
@@ -62,11 +66,14 @@ def test_backspace_on_the_main_menu_changes_nothing() -> None:
     assert press_all(Key.BACK) == press_all()
 
 
-def test_option_without_a_screen_shows_a_notice_that_any_key_closes() -> None:
+def test_option_without_a_screen_shows_a_notice_that_only_backspace_closes() -> None:
     navigation = press_all(Key.ENTER)
     assert navigation.notice
-    assert press(navigation, Key.OTHER).notice is None
-    assert press(navigation, Key.OTHER).menu is MAIN_MENU
+    assert press(navigation, Key.BACK).notice is None
+    for key in (Key.OTHER, Key.ENTER, Key.UP, Key.DOWN):
+        assert press(navigation, key) == navigation
+    assert press(navigation, Key.QUIT).finished
+    assert press(navigation, Key.BACK).menu is MAIN_MENU
 
 
 def test_enter_on_an_action_starts_it_straight_away() -> None:
@@ -106,7 +113,9 @@ def test_only_enter_leaves_the_outcome_screen(key: Key) -> None:
 
 
 def open_windows_old_confirmation() -> Navigation:
-    return press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER, *[Key.DOWN] * 5, Key.ENTER)
+    return press_all(
+        *[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER, *[Key.DOWN] * WINDOWS_OLD_OPTION, Key.ENTER
+    )
 
 
 def test_an_action_with_a_warning_asks_for_confirmation_before_running() -> None:
@@ -146,24 +155,21 @@ def test_safe_mode_is_on_by_default() -> None:
     assert Navigation().settings.safe_mode
 
 
-WINDOWS_OLD_OPTION = 5
-
-
-def test_with_safe_mode_on_the_cursor_skips_windows_old_in_both_directions() -> None:
+def test_with_safe_mode_on_the_cursor_skips_the_risky_options_in_both_directions() -> None:
     first = press_all(*CLEANUP_PATH, safe_mode=True)
     visited_down = [first.index]
     navigation = first
-    for _ in range(len(CLEANUP_MENU.items) - 1):
+    for _ in range(len(CLEANUP_MENU.items)):
         navigation = press(navigation, Key.DOWN)
         visited_down.append(navigation.index)
     visited_up = [first.index]
     navigation = first
-    for _ in range(len(CLEANUP_MENU.items) - 1):
+    for _ in range(len(CLEANUP_MENU.items)):
         navigation = press(navigation, Key.UP)
         visited_up.append(navigation.index)
 
-    assert WINDOWS_OLD_OPTION not in visited_down + visited_up
-    assert len(set(visited_down)) == len(CLEANUP_MENU.items) - 1
+    assert not RISKY_OPTIONS & set(visited_down + visited_up)
+    assert len(set(visited_down)) == len(CLEANUP_MENU.items) - len(RISKY_OPTIONS)
 
 
 def test_with_safe_mode_off_the_cursor_reaches_windows_old() -> None:
@@ -186,17 +192,17 @@ def test_safe_mode_does_not_block_the_harmless_actions() -> None:
     assert navigation.running is not None
 
 
-def test_the_recycle_bin_asks_for_confirmation_and_safe_mode_does_not_block_it() -> None:
-    asked = press_all(*CLEANUP_PATH, Key.DOWN, Key.ENTER, safe_mode=True)
+def test_the_recycle_bin_runs_straight_away_even_with_safe_mode_on() -> None:
+    navigation = press_all(*CLEANUP_PATH, Key.DOWN, Key.ENTER, safe_mode=True)
 
-    assert asked.confirming
-    assert asked.running is None
-    assert press(asked, Key.ENTER).running is empty_recycle_bin
-    assert press(asked, Key.BACK).running is None
+    assert navigation.running is empty_recycle_bin
+    assert not navigation.confirming
 
 
 def test_with_safe_mode_off_windows_old_asks_for_confirmation() -> None:
-    navigation = press_all(*CLEANUP_PATH, *[Key.DOWN] * 5, Key.ENTER, safe_mode=False)
+    navigation = press_all(
+        *CLEANUP_PATH, *[Key.DOWN] * WINDOWS_OLD_OPTION, Key.ENTER, safe_mode=False
+    )
 
     assert navigation.confirming
 
@@ -267,4 +273,6 @@ def test_confirming_run_all_starts_one_combined_action() -> None:
 def test_after_run_all_every_estimate_is_calculated_again() -> None:
     finished = complete(open_run_all(safe_mode=False), Outcome(items=0, bytes_freed=0))
 
-    assert len(press(finished, Key.ENTER).to_estimate) == 5
+    assert len(press(finished, Key.ENTER).to_estimate) == sum(
+        item.estimate is not None for item in CLEANUP_MENU.items
+    )

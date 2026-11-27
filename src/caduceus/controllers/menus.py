@@ -9,12 +9,27 @@ from dataclasses import dataclass
 from enum import Enum
 
 from caduceus.maintenance.actions import Action, Estimator
-from caduceus.maintenance.caches import clean_caches, estimate_caches
-from caduceus.maintenance.components import clean_components
-from caduceus.maintenance.hidden_junk import clean_hidden_junk, estimate_hidden_junk
-from caduceus.maintenance.recycle_bin import empty_recycle_bin, estimate_recycle_bin
-from caduceus.maintenance.temp_files import clean_temp_files, estimate_temp_files
-from caduceus.maintenance.windows_old import clean_windows_old, estimate_windows_old
+from caduceus.maintenance.free_space.app_caches import clean_app_caches, estimate_app_caches
+from caduceus.maintenance.free_space.browser_caches import (
+    clean_browser_caches,
+    estimate_browser_caches,
+)
+from caduceus.maintenance.free_space.components import clean_components
+from caduceus.maintenance.free_space.developer_caches import (
+    clean_developer_caches,
+    estimate_developer_caches,
+)
+from caduceus.maintenance.free_space.hidden_junk import clean_hidden_junk, estimate_hidden_junk
+from caduceus.maintenance.free_space.recycle_bin import empty_recycle_bin, estimate_recycle_bin
+from caduceus.maintenance.free_space.restore_points import clean_restore_points
+from caduceus.maintenance.free_space.system_caches import (
+    clean_system_caches,
+    estimate_system_caches,
+)
+from caduceus.maintenance.free_space.temp_files import clean_temp_files, estimate_temp_files
+from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, estimate_windows_logs
+from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
+from caduceus.maintenance.system_tweaks.hibernation import turn_off_hibernation
 
 
 class AdminNeed(Enum):
@@ -65,7 +80,6 @@ CLEANUP_MENU = Menu(
             "cleanup.recycle_bin",
             action=empty_recycle_bin,
             description_key="cleanup.recycle_bin.description",
-            confirm_key="cleanup.recycle_bin.confirm",
             estimate=estimate_recycle_bin,
         ),
         MenuItem(
@@ -76,17 +90,50 @@ CLEANUP_MENU = Menu(
             estimate=estimate_hidden_junk,
         ),
         MenuItem(
-            "cleanup.caches",
-            action=clean_caches,
-            description_key="cleanup.caches.description",
+            "cleanup.windows_logs",
+            action=clean_windows_logs,
+            description_key="cleanup.windows_logs.description",
+            admin=AdminNeed.ALL,
+            estimate=estimate_windows_logs,
+        ),
+        MenuItem(
+            "cleanup.system_caches",
+            action=clean_system_caches,
+            description_key="cleanup.system_caches.description",
             admin=AdminNeed.SOME,
-            estimate=estimate_caches,
+            estimate=estimate_system_caches,
+        ),
+        MenuItem(
+            "cleanup.browser_caches",
+            action=clean_browser_caches,
+            description_key="cleanup.browser_caches.description",
+            estimate=estimate_browser_caches,
+        ),
+        MenuItem(
+            "cleanup.app_caches",
+            action=clean_app_caches,
+            description_key="cleanup.app_caches.description",
+            estimate=estimate_app_caches,
+        ),
+        MenuItem(
+            "cleanup.developer_caches",
+            action=clean_developer_caches,
+            description_key="cleanup.developer_caches.description",
+            estimate=estimate_developer_caches,
         ),
         MenuItem(
             "cleanup.components",
             action=clean_components,
             description_key="cleanup.components.description",
             admin=AdminNeed.ALL,
+        ),
+        MenuItem(
+            "cleanup.restore_points",
+            action=clean_restore_points,
+            description_key="cleanup.restore_points.description",
+            admin=AdminNeed.ALL,
+            risky=True,
+            confirm_key="cleanup.restore_points.confirm",
         ),
         MenuItem(
             "cleanup.windows_old",
@@ -107,6 +154,20 @@ CLEANUP_MENU = Menu(
     ),
 )
 
+TWEAKS_MENU = Menu(
+    "tweaks.title",
+    (
+        MenuItem(
+            "tweaks.hibernation",
+            action=turn_off_hibernation,
+            description_key="tweaks.hibernation.description",
+            admin=AdminNeed.ALL,
+            risky=True,
+            confirm_key="tweaks.hibernation.confirm",
+        ),
+    ),
+)
+
 MAINTENANCE_MENU = Menu(
     "maintenance.title",
     (
@@ -114,6 +175,11 @@ MAINTENANCE_MENU = Menu(
             "maintenance.cleanup",
             CLEANUP_MENU,
             description_key="maintenance.cleanup.description",
+        ),
+        MenuItem(
+            "maintenance.tweaks",
+            TWEAKS_MENU,
+            description_key="maintenance.tweaks.description",
         ),
     ),
 )

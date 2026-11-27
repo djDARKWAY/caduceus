@@ -55,6 +55,7 @@ def _run_action(display: Live, texts: Texts, navigation: Navigation) -> Navigati
             show_progress(display, texts, navigation, step)
 
     with _no_controls():
+        show_progress(display, texts, navigation, Step("action.step", 0, 0))
         outcome = navigation.running(report)
     return complete(navigation, outcome)
 
@@ -62,15 +63,17 @@ def _run_action(display: Live, texts: Texts, navigation: Navigation) -> Navigati
 def _run_estimates(display: Live, texts: Texts, navigation: Navigation) -> Navigation:
     if not navigation.estimating:
         return navigation
-    items = [item for item in navigation.menu.items if item.label_key in navigation.to_estimate]
+    pending = [
+        (item.label_key, item.estimate)
+        for item in navigation.menu.items
+        if item.label_key in navigation.to_estimate and item.estimate is not None
+    ]
     estimates: dict[str, int | None] = {}
     with _no_controls():
-        for done, item in enumerate(items):
-            name = texts[item.label_key]
-            show_progress(
-                display, texts, navigation, Step("estimate.step", done, len(items), {"name": name})
-            )
-            estimates[item.label_key] = item.estimate() if item.estimate is not None else None
+        for done, (label_key, estimate) in enumerate(pending):
+            step = Step("estimate.step", done, len(pending), {"name": texts[label_key]})
+            show_progress(display, texts, navigation, step)
+            estimates[label_key] = estimate()
     return finish_estimates(navigation, estimates)
 
 
