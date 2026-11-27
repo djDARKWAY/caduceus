@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 
-from caduceus.maintenance.actions import Outcome, Report, Step
+from caduceus.maintenance.actions import Outcome, Report, Row, Step
 
 _SECONDS_PER_HOUR = 3600
 
@@ -25,6 +25,7 @@ _SECONDS_PER_HOUR = 3600
 @dataclass(frozen=True)
 class Location:
     path: str
+    label_key: str
     pattern: str = "*"
     min_age_hours: int = 0
     needs_admin: bool = False
@@ -34,14 +35,9 @@ class Location:
 class _Stats:
     items: int = 0
     bytes_freed: int = 0
-    skipped: int = 0
 
     def __add__(self, other: "_Stats") -> "_Stats":
-        return _Stats(
-            self.items + other.items,
-            self.bytes_freed + other.bytes_freed,
-            self.skipped + other.skipped,
-        )
+        return _Stats(self.items + other.items, self.bytes_freed + other.bytes_freed)
 
 
 def _is_admin() -> bool:
@@ -68,7 +64,7 @@ def _remove_file(path: Path, cutoff: float | None) -> _Stats:
         return _Stats()
     if _delete_file(path):
         return _Stats(items=1, bytes_freed=size_and_time.st_size)
-    return _Stats(skipped=1)
+    return _Stats()
 
 
 def _remove_directory(path: Path, cutoff: float | None) -> _Stats:
@@ -90,7 +86,7 @@ def _remove(path: Path, cutoff: float | None) -> _Stats:
             return _remove_directory(path, cutoff)
         return _remove_file(path, cutoff)
     except OSError:
-        return _Stats(skipped=1)
+        return _Stats()
 
 
 def _cutoff(location: Location) -> float | None:
@@ -103,7 +99,8 @@ def clean_locations(locations: Sequence[Location], report: Report) -> Outcome:
     admin = _is_admin()
     admin_required: list[str] = []
     failures: list[str] = []
-    work: list[tuple[Path, float | None]] = []
+    work: list[tuple[Path, float | None, str]] = []
+    totals: dict[str, _Stats] = {}
     for location in locations:
         root = Path(os.path.expandvars(location.path))
         try:
@@ -121,16 +118,17 @@ def clean_locations(locations: Sequence[Location], report: Report) -> Outcome:
         except OSError:
             failures.append(str(root))
             continue
-        work += [(entry, _cutoff(location)) for entry in entries]
+        totals.setdefault(location.label_key, _Stats())
+        work += [(entry, _cutoff(location), location.label_key) for entry in entries]
 
-    stats = _Stats()
-    for done, (entry, cutoff) in enumerate(work):
+    for done, (entry, cutoff, label_key) in enumerate(work):
         report(Step("cleaning.step", done, len(work), {"path": str(entry)}))
-        stats += _remove(entry, cutoff)
+        totals[label_key] += _remove(entry, cutoff)
+    overall = sum(totals.values(), _Stats())
     return Outcome(
-        stats.items,
-        stats.bytes_freed,
+        overall.items,
+        overall.bytes_freed,
         tuple(failures),
-        stats.skipped,
         tuple(admin_required),
+        tuple(Row(key, stats.items, stats.bytes_freed) for key, stats in totals.items()),
     )

@@ -1,3 +1,5 @@
+import pytest
+
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, MAINTENANCE_MENU
 from caduceus.controllers.navigation import Navigation, complete, press
@@ -58,14 +60,14 @@ def test_enter_on_an_action_starts_it_straight_away() -> None:
     assert open_recycle_bin_action().running is empty_recycle_bin
 
 
-def test_a_finished_action_shows_its_outcome_until_any_key_is_pressed() -> None:
+def test_a_finished_action_shows_its_outcome_until_enter_is_pressed() -> None:
     outcome = Outcome(items=2, bytes_freed=100)
 
     navigation = complete(open_recycle_bin_action(), outcome)
     assert navigation.running is None
     assert navigation.outcome is outcome
 
-    dismissed = press(navigation, Key.OTHER)
+    dismissed = press(navigation, Key.ENTER)
     assert dismissed.outcome is None
     assert dismissed.menu is CLEANUP_MENU
 
@@ -81,3 +83,10 @@ def test_q_finishes_from_any_menu() -> None:
 
 def test_other_keys_change_nothing() -> None:
     assert press_all(Key.OTHER) == Navigation()
+
+
+@pytest.mark.parametrize("key", [Key.UP, Key.DOWN, Key.BACK, Key.QUIT, Key.OTHER])
+def test_only_enter_leaves_the_outcome_screen(key: Key) -> None:
+    navigation = complete(open_recycle_bin_action(), Outcome(items=2, bytes_freed=100))
+
+    assert press(navigation, key) == navigation

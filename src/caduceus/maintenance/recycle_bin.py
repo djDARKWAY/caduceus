@@ -9,7 +9,7 @@ import ctypes
 import string
 from ctypes import wintypes
 
-from caduceus.maintenance.actions import Outcome, Report, Step
+from caduceus.maintenance.actions import Outcome, Report, Row, Step
 
 _DRIVE_FIXED = 3
 _NO_CONFIRMATION_NO_PROGRESS_NO_SOUND = 0x1 | 0x2 | 0x4
@@ -56,6 +56,7 @@ def empty_recycle_bin(report: Report) -> Outcome:
     items = 0
     bytes_freed = 0
     failures: list[str] = []
+    rows: list[Row] = []
     for done, drive in enumerate(drives):
         report(Step("recycle_bin.step", done, len(drives), {"drive": drive}))
         try:
@@ -65,6 +66,7 @@ def empty_recycle_bin(report: Report) -> Outcome:
         except OSError:
             failures.append(drive)
             continue
+        rows.append(Row("category.recycle_bin", drive_items, drive_bytes, {"drive": drive}))
         items += drive_items
         bytes_freed += drive_bytes
-    return Outcome(items, bytes_freed, tuple(failures))
+    return Outcome(items, bytes_freed, tuple(failures), rows=tuple(rows))

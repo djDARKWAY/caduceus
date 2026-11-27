@@ -10,9 +10,14 @@ from caduceus.maintenance.actions import Outcome, Report
 from caduceus.maintenance.cleaner import Location, clean_locations
 
 LOCATIONS = (
-    Location("%TEMP%", min_age_hours=TEMP_MIN_AGE_HOURS),
-    Location("%WINDIR%\\Temp", min_age_hours=TEMP_MIN_AGE_HOURS, needs_admin=True),
-    Location("%WINDIR%\\Prefetch", pattern="*.pf", needs_admin=True),
+    Location("%TEMP%", "category.user_temp", min_age_hours=TEMP_MIN_AGE_HOURS),
+    Location(
+        "%WINDIR%\\Temp",
+        "category.windows_temp",
+        min_age_hours=TEMP_MIN_AGE_HOURS,
+        needs_admin=True,
+    ),
+    Location("%WINDIR%\\Prefetch", "category.prefetch", pattern="*.pf", needs_admin=True),
 )
 
 

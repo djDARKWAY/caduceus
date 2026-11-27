@@ -1,7 +1,8 @@
 """
 Navegação
 
-Lógica pura da navegação nos menus: dado o estado e uma tecla, devolve o novo estado. Não lê
+Lógica pura da navegação nos menus: dado o estado e uma tecla, devolve o novo estado. Com o
+resultado de uma ação no ecrã, só o ENTER faz alguma coisa (volta ao menu). Não lê
 teclas, não desenha e não corre ações: quando uma opção tem ação, o estado fica com `running` e
 é a aplicação que a corre e depois chama `complete`.
 """
@@ -62,12 +63,12 @@ def _back(navigation: Navigation) -> Navigation:
 
 
 def press(navigation: Navigation, key: Key) -> Navigation:
+    if navigation.outcome is not None:
+        return replace(navigation, outcome=None) if key is Key.ENTER else navigation
     if key is Key.QUIT:
         return replace(navigation, finished=True)
     if navigation.notice:
         return replace(navigation, notice=False)
-    if navigation.outcome is not None:
-        return replace(navigation, outcome=None)
     if key is Key.UP:
         return _move(navigation, -1)
     if key is Key.DOWN:

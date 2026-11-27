@@ -9,13 +9,21 @@ from caduceus.maintenance.actions import Outcome, Report
 from caduceus.maintenance.cleaner import Location, clean_locations
 
 LOCATIONS = (
-    Location("%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer", pattern="thumbcache_*.db"),
-    Location("%LOCALAPPDATA%\\Microsoft\\Windows\\Explorer", pattern="iconcache_*.db"),
-    Location("%LOCALAPPDATA%\\Microsoft\\Windows\\WER"),
-    Location("%PROGRAMDATA%\\Microsoft\\Windows\\WER", needs_admin=True),
-    Location("%LOCALAPPDATA%\\CrashDumps"),
-    Location("%WINDIR%\\Minidump", needs_admin=True),
-    Location("%WINDIR%", pattern="MEMORY.DMP", needs_admin=True),
+    Location(
+        r"%LOCALAPPDATA%\Microsoft\Windows\Explorer",
+        "category.thumbnail_cache",
+        pattern="thumbcache_*.db",
+    ),
+    Location(
+        r"%LOCALAPPDATA%\Microsoft\Windows\Explorer",
+        "category.icon_cache",
+        pattern="iconcache_*.db",
+    ),
+    Location(r"%LOCALAPPDATA%\Microsoft\Windows\WER", "category.error_reports"),
+    Location(r"%PROGRAMDATA%\Microsoft\Windows\WER", "category.error_reports", needs_admin=True),
+    Location(r"%LOCALAPPDATA%\CrashDumps", "category.crash_dumps"),
+    Location(r"%WINDIR%\Minidump", "category.memory_dumps", needs_admin=True),
+    Location("%WINDIR%", "category.memory_dumps", pattern="MEMORY.DMP", needs_admin=True),
 )
 
 

@@ -4,6 +4,7 @@ Interface
 Só desenho: o cabeçalho, o menu atual, o aviso e a linha de teclas de controlo.
 """
 
+from rich import box
 from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.padding import Padding
@@ -35,6 +36,8 @@ HINTS = (
     ("BACKSPACE", "hint.back"),
     ("Q", "hint.quit"),
 )
+
+OUTCOME_HINTS = (("ENTER", "hint.back"),)
 
 _BODY_PADDING = (1, 0, 0, 2)
 
@@ -82,9 +85,9 @@ def _render_notice(texts: Texts) -> RenderableType:
     return Padding(Text(texts["menu.not_available"]), _BODY_PADDING)
 
 
-def _render_hints(texts: Texts) -> RenderableType:
+def _render_hints(texts: Texts, shown: tuple[tuple[str, str], ...] = HINTS) -> RenderableType:
     hints = Text()
-    for position, (key_label, text_key) in enumerate(HINTS):
+    for position, (key_label, text_key) in enumerate(shown):
         if position:
             hints.append("   ")
         hints.append(key_label, style=f"bold {ACCENT}")
@@ -126,16 +129,30 @@ def _render_progress(texts: Texts, title: str, step: Step) -> RenderableType:
     return Padding(body, _BODY_PADDING)
 
 
+def _render_breakdown(texts: Texts, outcome: Outcome) -> RenderableType:
+    table = Table(box=box.SIMPLE_HEAD, header_style=f"bold {ACCENT}", pad_edge=False)
+    table.add_column(texts["result.category"], no_wrap=True)
+    table.add_column(texts["result.items"], justify="right")
+    table.add_column(texts["result.freed"], justify="right")
+    for row in outcome.rows:
+        label = texts[row.label_key].format(**row.values)
+        table.add_row(label, str(row.items), format_size(row.bytes_freed))
+    table.add_section()
+    table.add_row(
+        Text(texts["result.total"], style="bold"),
+        Text(str(outcome.items), style="bold"),
+        Text(format_size(outcome.bytes_freed), style="bold"),
+    )
+    return table
+
+
 def _render_outcome(texts: Texts, title: str, outcome: Outcome) -> RenderableType:
     lines = [
         Text(title, style=f"bold {ACCENT}"),
         Text(""),
         Text(texts["result.done"]),
-        Text(texts["result.items"].format(items=outcome.items)),
-        Text(texts["result.freed"].format(size=format_size(outcome.bytes_freed))),
+        _render_breakdown(texts, outcome),
     ]
-    if outcome.skipped:
-        lines.append(Text(texts["result.skipped"].format(count=outcome.skipped)))
     for label_key, places in (
         ("result.admin", outcome.admin_required),
         ("result.failures", outcome.failures),
@@ -143,12 +160,13 @@ def _render_outcome(texts: Texts, title: str, outcome: Outcome) -> RenderableTyp
         if places:
             lines += [Text(""), Text(texts[label_key], style=WARNING)]
             lines += [Text(f"  {place}", style=WARNING, no_wrap=True) for place in places]
-    lines += [Text(""), Text(texts["result.back"], style=DETAIL_STYLE)]
     return Padding(Group(*lines), _BODY_PADDING)
 
 
-def _frame(texts: Texts, body: RenderableType) -> RenderableType:
-    return Group(_render_header(texts), body, _render_hints(texts))
+def _frame(
+    texts: Texts, body: RenderableType, hints: tuple[tuple[str, str], ...] = HINTS
+) -> RenderableType:
+    return Group(_render_header(texts), body, _render_hints(texts, hints))
 
 
 def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
@@ -156,12 +174,13 @@ def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
         return _frame(texts, _render_notice(texts))
     if navigation.outcome is not None:
         title = texts[navigation.item.label_key]
-        return _frame(texts, _render_outcome(texts, title, navigation.outcome))
+        return _frame(texts, _render_outcome(texts, title, navigation.outcome), OUTCOME_HINTS)
     return _frame(texts, _render_menu(texts, navigation.menu, navigation.index))
 
 
 def render_progress(texts: Texts, navigation: Navigation, step: Step) -> RenderableType:
-    return _frame(texts, _render_progress(texts, texts[navigation.item.label_key], step))
+    body = _render_progress(texts, texts[navigation.item.label_key], step)
+    return Group(_render_header(texts), body)
 
 
 def open_display(console: Console, texts: Texts, navigation: Navigation) -> Live:
