@@ -2,12 +2,12 @@
 Limpar os ficheiros temporários
 
 Apaga o conteúdo da pasta temporária do utilizador (%TEMP%) e da do Windows (C:\\Windows\\Temp),
-sem tocar no que tem menos de um dia, e os ficheiros .pf do Prefetch (C:\\Windows\\Prefetch).
+sem tocar no que tem menos de uma hora, e os ficheiros .pf do Prefetch (C:\\Windows\\Prefetch).
 """
 
 from caduceus.config import TEMP_MIN_AGE_HOURS
 from caduceus.maintenance.actions import Outcome, Report
-from caduceus.maintenance.cleaner import Location, clean_locations
+from caduceus.maintenance.cleaner import Location, clean_locations, estimate_locations
 
 LOCATIONS = (
     Location("%TEMP%", "category.user_temp", min_age_hours=TEMP_MIN_AGE_HOURS),
@@ -23,3 +23,7 @@ LOCATIONS = (
 
 def clean_temp_files(report: Report) -> Outcome:
     return clean_locations(LOCATIONS, report)
+
+
+def estimate_temp_files() -> int:
+    return estimate_locations(LOCATIONS)

@@ -7,12 +7,12 @@ import pytest
 
 from caduceus.maintenance import cleaner
 from caduceus.maintenance.actions import Outcome, Step
-from caduceus.maintenance.cleaner import Location, clean_locations
+from caduceus.maintenance.cleaner import Location, clean_locations, estimate_locations
 
 
 @pytest.fixture(autouse=True)
 def administrator(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cleaner, "_is_admin", lambda: True)
+    monkeypatch.setattr(cleaner, "is_admin", lambda: True)
 
 
 def write(path: Path, size: int = 10, age_hours: int = 0) -> None:
@@ -21,6 +21,14 @@ def write(path: Path, size: int = 10, age_hours: int = 0) -> None:
     if age_hours:
         modified = time.time() - age_hours * 3600
         os.utime(path, (modified, modified))
+
+
+def make_junction(link: Path, target: Path) -> None:
+    subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        check=True,
+        capture_output=True,
+    )
 
 
 def clean(*locations: Location) -> Outcome:
@@ -75,7 +83,7 @@ def test_environment_variables_in_the_path_are_expanded(
 def test_a_location_that_needs_administrator_is_reported_and_left_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(cleaner, "_is_admin", lambda: False)
+    monkeypatch.setattr(cleaner, "is_admin", lambda: False)
     write(tmp_path / "a.txt")
 
     outcome = clean(Location(str(tmp_path), "category.test", needs_admin=True))
@@ -91,7 +99,7 @@ def test_a_protected_folder_that_cannot_even_be_checked_asks_for_administrator(
     def deny(_path: Path) -> bool:
         raise PermissionError
 
-    monkeypatch.setattr(cleaner, "_is_admin", lambda: False)
+    monkeypatch.setattr(cleaner, "is_admin", lambda: False)
     monkeypatch.setattr(Path, "is_dir", deny)
 
     outcome = clean(Location(str(tmp_path), "category.test", needs_admin=True))
@@ -118,16 +126,40 @@ def test_a_junction_is_never_followed_outside_the_folder(tmp_path: Path) -> None
     write(outside / "keep.txt")
     root = tmp_path / "root"
     root.mkdir()
-    subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(root / "link"), str(outside)],
-        check=True,
-        capture_output=True,
-    )
+    make_junction(root / "link", outside)
 
     outcome = clean(Location(str(root), "category.test"))
 
     assert outcome.items == 0
     assert (outside / "keep.txt").exists()
+
+
+def test_a_target_folder_that_is_a_junction_is_refused_and_its_destination_untouched(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    write(outside / "keep.txt")
+    make_junction(tmp_path / "link", outside)
+
+    outcome = clean(Location(str(tmp_path / "link"), "category.test"))
+
+    assert outcome.failures == (str(tmp_path / "link"),)
+    assert outcome.items == 0
+    assert (outside / "keep.txt").exists()
+
+
+def test_a_target_folder_below_a_junction_is_refused_and_its_destination_untouched(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    write(outside / "cache" / "keep.txt")
+    make_junction(tmp_path / "link", outside)
+    below = tmp_path / "link" / "cache"
+
+    outcome = clean(Location(str(below), "category.test"))
+
+    assert outcome.failures == (str(below),)
+    assert (outside / "cache" / "keep.txt").exists()
 
 
 def test_a_file_that_cannot_be_deleted_is_left_alone_and_not_counted(
@@ -176,3 +208,81 @@ def test_results_are_grouped_by_category_in_the_order_of_the_locations(tmp_path:
         ("category.second", 0, 0),
         ("category.third", 1, 5),
     ]
+
+
+def test_the_estimate_counts_what_would_be_freed_and_deletes_nothing(tmp_path: Path) -> None:
+    write(tmp_path / "old.tmp", size=10, age_hours=48)
+    write(tmp_path / "sub" / "old2.tmp", size=20, age_hours=48)
+    write(tmp_path / "new.tmp", size=100, age_hours=1)
+
+    estimate = estimate_locations([Location(str(tmp_path), "category.test", min_age_hours=24)])
+
+    assert estimate == 30
+    assert len(list(tmp_path.rglob("*.tmp"))) == 3
+
+
+def test_the_estimate_skips_locations_that_need_an_administrator_when_not_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(cleaner, "is_admin", lambda: False)
+    write(tmp_path / "a.txt", size=10)
+
+    assert estimate_locations([Location(str(tmp_path), "category.test", needs_admin=True)]) == 0
+
+
+def test_the_estimate_never_follows_a_junction(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    write(outside / "big.bin", size=1000)
+    root = tmp_path / "root"
+    root.mkdir()
+    make_junction(root / "link", outside)
+
+    assert estimate_locations([Location(str(root), "category.test")]) == 0
+
+
+def test_the_estimate_ignores_a_target_folder_that_is_or_is_below_a_junction(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    write(outside / "cache" / "big.bin", size=1000)
+    make_junction(tmp_path / "link", outside)
+
+    assert estimate_locations([Location(str(tmp_path / "link"), "category.test")]) == 0
+    assert estimate_locations([Location(str(tmp_path / "link" / "cache"), "category.test")]) == 0
+
+
+def test_a_star_in_the_path_cleans_every_matching_folder_and_only_those(tmp_path: Path) -> None:
+    write(tmp_path / "Default" / "Cache" / "a.bin", size=10)
+    write(tmp_path / "Profile 1" / "Cache" / "b.bin", size=20)
+    write(tmp_path / "Default" / "Cookies" / "keep.db", size=5)
+
+    outcome = clean(Location(str(tmp_path / "*" / "Cache"), "category.test"))
+
+    assert (outcome.items, outcome.bytes_freed) == (2, 30)
+    assert (tmp_path / "Default" / "Cookies" / "keep.db").exists()
+
+
+def test_a_star_that_matches_nothing_is_not_an_error(tmp_path: Path) -> None:
+    assert clean(Location(str(tmp_path / "*" / "Cache"), "category.test")) == Outcome(0, 0)
+
+
+def test_the_estimate_and_the_cleaning_agree_on_a_star_path(tmp_path: Path) -> None:
+    write(tmp_path / "Default" / "Cache" / "a.bin", size=10)
+    write(tmp_path / "Profile 1" / "Cache" / "b.bin", size=20)
+    location = Location(str(tmp_path / "*" / "Cache"), "category.test")
+
+    assert estimate_locations([location]) == 30
+    assert clean(location).bytes_freed == 30
+
+
+def test_a_folder_found_by_a_star_that_is_a_junction_is_refused(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    write(outside / "Cache" / "keep.bin", size=10)
+    profiles = tmp_path / "profiles"
+    profiles.mkdir()
+    make_junction(profiles / "Default", outside)
+
+    outcome = clean(Location(str(profiles / "*" / "Cache"), "category.test"))
+
+    assert outcome.failures == (str(profiles / "Default" / "Cache"),)
+    assert (outside / "Cache" / "keep.bin").exists()

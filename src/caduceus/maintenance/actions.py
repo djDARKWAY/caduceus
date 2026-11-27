@@ -14,16 +14,17 @@ from dataclasses import dataclass, field
 class Step:
     text_key: str
     done: int
-    total: int
+    total: int  # 0 quando não se sabe quanto falta: a barra mostra só que há trabalho em curso
     values: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class Row:
     label_key: str
-    items: int
+    items: int | None  # None quando a ação não sabe quantos itens removeu
     bytes_freed: int
     values: Mapping[str, str] = field(default_factory=dict)
+    needs_admin: bool = False
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,12 @@ class Outcome:
     admin_required: tuple[str, ...] = ()
     rows: tuple[Row, ...] = ()
 
+    @property
+    def items_counted(self) -> bool:
+        """Falso quando a ação não sabe quantos itens removeu (todas as linhas sem contagem)."""
+        return not self.rows or any(row.items is not None for row in self.rows)
+
 
 Report = Callable[[Step], None]
 Action = Callable[[Report], Outcome]
+Estimator = Callable[[], int | None]  # bytes que a ação deve libertar, ou None se não se sabe

@@ -51,6 +51,16 @@ def _empty(drive: str) -> None:
     _empty_bin(None, drive, _NO_CONFIRMATION_NO_PROGRESS_NO_SOUND)
 
 
+def estimate_recycle_bin() -> int:
+    total = 0
+    for drive in _fixed_drives():
+        try:
+            total += _query(drive)[1]
+        except OSError:
+            continue  # uma unidade que não responde não entra na estimativa
+    return total
+
+
 def empty_recycle_bin(report: Report) -> Outcome:
     drives = _fixed_drives()
     items = 0

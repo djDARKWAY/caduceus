@@ -2,11 +2,12 @@
 Limpar o lixo escondido
 
 Apaga as caches de miniaturas e de ícones do Explorer, os relatórios de erros do Windows, os
-despejos de falhas e os despejos de memória.
+despejos de falhas e os despejos de memória (incluindo os relatórios de falhas de drivers e
+hardware em `LiveKernelReports`).
 """
 
 from caduceus.maintenance.actions import Outcome, Report
-from caduceus.maintenance.cleaner import Location, clean_locations
+from caduceus.maintenance.cleaner import Location, clean_locations, estimate_locations
 
 LOCATIONS = (
     Location(
@@ -23,9 +24,14 @@ LOCATIONS = (
     Location(r"%PROGRAMDATA%\Microsoft\Windows\WER", "category.error_reports", needs_admin=True),
     Location(r"%LOCALAPPDATA%\CrashDumps", "category.crash_dumps"),
     Location(r"%WINDIR%\Minidump", "category.memory_dumps", needs_admin=True),
+    Location(r"%WINDIR%\LiveKernelReports", "category.memory_dumps", needs_admin=True),
     Location("%WINDIR%", "category.memory_dumps", pattern="MEMORY.DMP", needs_admin=True),
 )
 
 
 def clean_hidden_junk(report: Report) -> Outcome:
     return clean_locations(LOCATIONS, report)
+
+
+def estimate_hidden_junk() -> int:
+    return estimate_locations(LOCATIONS)
