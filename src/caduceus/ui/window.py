@@ -44,7 +44,7 @@ def _lock_resizing() -> None:
 
 
 def _is_classic_console() -> bool:
-    """Verdadeiro só na consola clássica: nas outras (Windows Terminal) a janela não é do programa."""
+    """Verdadeiro só na consola clássica: noutras (Windows Terminal) a janela não é do programa."""
     window = ctypes.windll.kernel32.GetConsoleWindow()
     if not window:
         return False
