@@ -180,12 +180,12 @@ def test_a_program_for_all_users_asks_for_administrator_and_changes_nothing(
     assert is_enabled(machine)
 
 
-def test_startup_programs_come_from_the_run_keys_and_the_startup_folders_heaviest_first(
+def test_startup_programs_come_from_the_run_keys_and_the_startup_folders_sorted_by_name(
     sandboxed_registry: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     run_path = rf"{sandboxed_registry}\Run"
     with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, run_path, 0, winreg.KEY_SET_VALUE) as key:
-        winreg.SetValueEx(key, "Light", 0, winreg.REG_SZ, r'"C:\Apps\light.exe"')
+        winreg.SetValueEx(key, "light", 0, winreg.REG_SZ, r'"C:\Apps\light.exe"')
         winreg.SetValueEx(key, "Heavy", 0, winreg.REG_SZ, r'"C:\Apps\heavy.exe" --go')
     folder = tmp_path / "Startup"
     folder.mkdir()
@@ -206,7 +206,7 @@ def test_startup_programs_come_from_the_run_keys_and_the_startup_folders_heavies
 
     entries = list_startup_entries()
 
-    assert [found.label for found in entries] == ["Heavy", "Light", "Shortcut"]
+    assert [found.label for found in entries] == ["Heavy", "light", "Shortcut"]
     assert entries[0].memory_bytes == 500 * MB
     assert entries[2].memory_bytes is None
     assert entries[2].source is StartupSource.FOLDER_USER

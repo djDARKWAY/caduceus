@@ -237,10 +237,10 @@ def _folder_entries(running: dict[str, int]) -> list[StartupEntry]:
 
 
 def list_startup_entries() -> list[StartupEntry]:
-    """Os programas de arranque, do que mais memória usa ao que menos (os que não correm no fim)."""
+    """Os programas de arranque, ordenados pelo nome, de A a Z."""
     running = memory_by_executable()
     entries = _run_entries(running) + _folder_entries(running) + _service_entries(running)
-    return sorted(entries, key=lambda entry: -(entry.memory_bytes or -1))
+    return sorted(entries, key=lambda entry: entry.label.casefold())
 
 
 def parse_enabled(data: bytes) -> bool:
