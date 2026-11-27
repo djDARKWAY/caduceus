@@ -67,7 +67,8 @@ def mru_without(mru: str, removed_letters: set[str]) -> str:
     return "".join(letter for letter in mru if letter not in removed_letters)
 
 
-def _clean_open_with_list(extension: str, orphans: set[str]) -> None:
+def _clean_open_with_list(extension: str, orphans: set[str]) -> bool:
+    """Tira as aplicações órfãs da lista da extensão; devolve se a lista ficou como devia."""
     path = rf"{_FILE_EXTS_KEY}\{extension}\OpenWithList"
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_ALL_ACCESS) as key:
@@ -85,8 +86,11 @@ def _clean_open_with_list(extension: str, orphans: set[str]) -> None:
             if removed and isinstance(values.get(_MRU_LIST), str):
                 mru = mru_without(values[_MRU_LIST], removed)
                 winreg.SetValueEx(key, _MRU_LIST, 0, winreg.REG_SZ, mru)
+    except FileNotFoundError:
+        return True  # a extensão não tem lista: não há o que tirar
     except OSError:
-        return  # a extensão não tem lista, ou o Windows não deixa mexer nela: fica como estava
+        return False
+    return True
 
 
 def _backup_file(name: str) -> Path:
@@ -112,10 +116,12 @@ def clean_open_with(report: Report) -> Outcome:
     if not _export(rf"HKCU\{_FILE_EXTS_KEY}", _backup_file("fileexts"), report):
         return Outcome(0, 0, failures=tuple(orphans))
     folded = {name.casefold() for name in orphans}
-    for extension in _names_registered(winreg.HKEY_CURRENT_USER, _FILE_EXTS_KEY):
-        _clean_open_with_list(extension, folded)
     removed: list[str] = []
-    failures: list[str] = []
+    failures: list[str] = [
+        f"{extension} (OpenWithList)"
+        for extension in _names_registered(winreg.HKEY_CURRENT_USER, _FILE_EXTS_KEY)
+        if not _clean_open_with_list(extension, folded)
+    ]
     for name in orphans:
         key = rf"HKCU\{_APPLICATIONS_KEY}\{name}"
         done = _export(key, _backup_file(name), report) and run_system_tool(

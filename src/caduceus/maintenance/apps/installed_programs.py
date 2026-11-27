@@ -195,8 +195,10 @@ def is_installed(program: InstalledProgram) -> bool:
     try:
         with winreg.OpenKey(program.hive, program.key_path):
             return True
-    except OSError:
+    except FileNotFoundError:
         return False
+    except OSError:
+        return True  # sem poder ler a chave, não se pode afirmar que o programa saiu
 
 
 def split_command(command: str) -> tuple[str, str] | None:

@@ -1,7 +1,6 @@
 import os
-import uuid
 import winreg
-from collections.abc import Iterator
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -25,29 +24,13 @@ ERROR_FILE_NOT_FOUND = 2
 ERROR_CANCELLED = 1223
 
 
-def delete_tree(path: str) -> None:
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
-            children = [winreg.EnumKey(key, i) for i in range(winreg.QueryInfoKey(key)[0])]
-    except OSError:
-        return  # a chave nunca chegou a existir, ou o desinstalador fictício já a apagou
-    for child in children:
-        delete_tree(rf"{path}\{child}")
-    winreg.DeleteKey(winreg.HKEY_CURRENT_USER, path)
-
-
 @pytest.fixture
-def uninstall_key(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
-    """Uma chave `Uninstall` só deste teste, no registo do utilizador, que se apaga no fim."""
-    root = r"Software\CaduceusTests"
-    path = rf"{root}\{uuid.uuid4().hex}"
-    monkeypatch.setattr(installed_programs, "_UNINSTALL_KEYS", ((winreg.HKEY_CURRENT_USER, path),))
-    yield path
-    delete_tree(path)
-    try:
-        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, root)
-    except OSError:
-        pass  # a raiz só sai quando ficar vazia
+def uninstall_key(test_key: str, monkeypatch: pytest.MonkeyPatch) -> str:
+    """A chave de teste passa a ser a única `Uninstall` que o Caduceus lê."""
+    monkeypatch.setattr(
+        installed_programs, "_UNINSTALL_KEYS", ((winreg.HKEY_CURRENT_USER, test_key),)
+    )
+    return test_key
 
 
 def register(root: str, key_name: str, **values: str | int) -> None:
@@ -151,14 +134,14 @@ def no_report(_step: Step) -> None:
 
 
 def test_a_program_whose_uninstaller_removed_it_is_reported_as_uninstalled(
-    uninstall_key: str, monkeypatch: pytest.MonkeyPatch
+    uninstall_key: str, monkeypatch: pytest.MonkeyPatch, delete_key_tree: Callable[[str], None]
 ) -> None:
     program = registered_program(uninstall_key)
     launched: list[tuple[str, str]] = []
 
     def fake_uninstaller(executable: str, arguments: str, _report: Report, _step: Step) -> int:
         launched.append((executable, arguments))
-        delete_tree(program.key_path)
+        delete_key_tree(program.key_path)
         return 0
 
     free_space = iter([1000, 5000])
