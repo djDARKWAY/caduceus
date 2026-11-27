@@ -23,7 +23,7 @@ PROGRESS_REFRESH_SECONDS = 0.05  # intervalo mínimo entre redesenhos da barra d
 # ==============================================================================
 # 3. WINDOW
 # ==============================================================================
-WINDOW_COLUMNS = 90         # largura fixa da janela da consola, em colunas
+WINDOW_COLUMNS = 110        # largura fixa da janela da consola, em colunas
 WINDOW_LINES   = 30         # altura fixa da janela da consola, em linhas
 
 # ==============================================================================
