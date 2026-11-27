@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "caduceus"
+dynamic = ["version"]
+description = "Windows maintenance and diagnostics toolkit for the command line"
+requires-python = ">=3.12"
+dependencies = ["rich"]
+
+[project.optional-dependencies]
+dev = ["mypy", "pip-audit", "pytest", "ruff", "vulture"]
+
+[tool.setuptools.dynamic]
+version = { attr = "caduceus.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+caduceus = ["locales/*.json"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+# O config tem alinhamento manual das colunas
+exclude = ["src/caduceus/config.py"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "ARG", "ANN401", "PGH003", "T20", "BLE001", "S110"]
+
+[tool.vulture]
+paths = ["src", "tests"]
+# Membros do enum MainMenuOption, usados ao iterar o enum
+ignore_names = ["SCAN", "MAINTENANCE", "SETTINGS"]

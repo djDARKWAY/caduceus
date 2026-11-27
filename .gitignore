@@ -1,1 +1,10 @@
 docs/
+
+.venv/
+__pycache__/
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
