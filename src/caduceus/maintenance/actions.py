@@ -34,6 +34,8 @@ class Outcome:
     failures: tuple[str, ...] = ()
     admin_required: tuple[str, ...] = ()
     rows: tuple[Row, ...] = ()
+    quit_after: bool = False  # a ação pede que o Caduceus feche (por exemplo, ao reabrir)
+    notice: str | None = None  # a chave de um aviso a mostrar em vez do resultado
 
     @property
     def items_counted(self) -> bool:

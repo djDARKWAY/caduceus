@@ -67,9 +67,16 @@ def blocked_by_missing_administrator(navigation: Navigation, item: MenuItem) -> 
     return item.admin is AdminNeed.ALL and not navigation.administrator
 
 
+def blocked_by_present_administrator(navigation: Navigation, item: MenuItem) -> bool:
+    """Reabrir como administrador não faz sentido quando já se é."""
+    return item.only_without_admin and navigation.administrator
+
+
 def is_blocked(navigation: Navigation, item: MenuItem) -> bool:
-    return blocked_by_safe_mode(navigation, item) or blocked_by_missing_administrator(
-        navigation, item
+    return (
+        blocked_by_safe_mode(navigation, item)
+        or blocked_by_missing_administrator(navigation, item)
+        or blocked_by_present_administrator(navigation, item)
     )
 
 
@@ -173,6 +180,10 @@ def finish_estimates(navigation: Navigation, estimates: Mapping[str, int | None]
 
 
 def complete(navigation: Navigation, outcome: Outcome) -> Navigation:
+    if outcome.quit_after:
+        return replace(navigation, running=None, finished=True)
+    if outcome.notice is not None:
+        return replace(navigation, running=None, notice=outcome.notice)
     went_wrong = bool(outcome.failures or outcome.admin_required)
     if navigation.item.instant and not went_wrong:
         return replace(navigation, running=None)

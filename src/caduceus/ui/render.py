@@ -33,6 +33,7 @@ from caduceus.controllers.menus import MenuItem
 from caduceus.controllers.navigation import (
     Navigation,
     blocked_by_missing_administrator,
+    blocked_by_present_administrator,
     blocked_by_safe_mode,
     is_blocked,
 )
@@ -233,6 +234,7 @@ def _menu_title(texts: Texts, navigation: Navigation, count: int | None = None) 
         texts[key]
         for key, blocked in (
             ("blocked.administrator", blocked_by_missing_administrator),
+            ("blocked.already_administrator", blocked_by_present_administrator),
             ("blocked.safe_mode", blocked_by_safe_mode),
         )
         if any(blocked(navigation, item) for item in items)

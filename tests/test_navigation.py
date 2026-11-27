@@ -46,7 +46,9 @@ def open_temp_files_action() -> Navigation:
 
 
 def test_down_on_the_last_option_goes_to_the_first() -> None:
-    assert press_all(*[Key.DOWN] * len(MAIN_MENU.items)).index == 0
+    selectable = [item for item in MAIN_MENU.items if not item.only_without_admin]
+
+    assert press_all(*[Key.DOWN] * len(selectable)).index == 0
 
 
 def test_up_on_the_first_option_goes_to_the_last() -> None:
@@ -428,3 +430,34 @@ def test_a_list_where_everything_needs_safe_mode_off_cannot_be_opened() -> None:
     navigation = list_menu(True, True)
 
     assert press(navigation, Key.ENTER) == navigation
+
+
+def main_menu_at_restart(administrator: bool) -> Navigation:
+    restart = next(i for i, item in enumerate(MAIN_MENU.items) if item.only_without_admin)
+    return Navigation(selected=(restart,), administrator=administrator)
+
+
+def test_restart_as_administrator_is_offered_only_without_administrator() -> None:
+    without = press(main_menu_at_restart(administrator=False), Key.ENTER)
+    with_admin = main_menu_at_restart(administrator=True)
+
+    assert without.running is not None
+    assert press(with_admin, Key.ENTER) == with_admin
+
+
+def test_when_the_restart_goes_ahead_the_app_closes_without_a_result() -> None:
+    running = press(main_menu_at_restart(administrator=False), Key.ENTER)
+
+    done = complete(running, Outcome(0, 0, quit_after=True))
+
+    assert done.finished
+    assert done.outcome is None
+
+
+def test_when_the_user_declines_the_windows_prompt_a_notice_is_shown() -> None:
+    running = press(main_menu_at_restart(administrator=False), Key.ENTER)
+
+    done = complete(running, Outcome(0, 0, notice="notice.restart_cancelled"))
+
+    assert not done.finished
+    assert done.notice == "notice.restart_cancelled"

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from caduceus.maintenance.actions import Action, Estimator
+from caduceus.maintenance.admin import restart_as_administrator
 from caduceus.maintenance.free_space.app_caches import clean_app_caches, estimate_app_caches
 from caduceus.maintenance.free_space.browser_caches import (
     clean_browser_caches,
@@ -78,6 +79,7 @@ class MenuItem:
     setting: str | None = None
     runs_all: bool = False
     state: Callable[[], bool] | None = None  # o estado ligado/desligado, mostrado ao lado do nome
+    only_without_admin: bool = False  # só faz sentido sem administrador (fica esbatida com ele)
     label: str | None = None
     description_values: Mapping[str, str] = field(default_factory=dict)
     cells: tuple[int | str | None, ...] = ()
@@ -307,6 +309,13 @@ MAIN_MENU = Menu(
             "menu.settings",
             SETTINGS_MENU,
             description_key="menu.settings.description",
+        ),
+        MenuItem(
+            "menu.restart_admin",
+            action=restart_as_administrator,
+            description_key="menu.restart_admin.description",
+            only_without_admin=True,
+            instant=True,
         ),
         MenuItem("menu.exit", quits=True),
     ),

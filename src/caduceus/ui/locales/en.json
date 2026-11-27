@@ -8,6 +8,8 @@
   "menu.maintenance.description": "Pick a category and then the exact action to run. Nothing runs unless you choose it.",
   "menu.settings": "Settings",
   "menu.settings.description": "Change how Caduceus behaves. Your choices are saved for the next time.",
+  "menu.restart_admin": "Restart as administrator",
+  "menu.restart_admin.description": "Closes Caduceus and opens it again with administrator rights. Windows asks you to confirm first, and if you decline nothing changes. Needed for the options marked [ADMIN].\n• Windows · shows its own confirmation window\n• Only available when not running as administrator",
   "menu.exit": "Exit",
   "maintenance.title": "MANUAL MAINTENANCE",
   "maintenance.cleanup": "Free up space",
@@ -157,5 +159,7 @@
   "table.program": "Program",
   "table.state": "State",
   "blocked.administrator": "Dimmed: run Caduceus as administrator",
-  "blocked.safe_mode": "Dimmed: turn Safe mode OFF"
+  "blocked.safe_mode": "Dimmed: turn Safe mode OFF",
+  "notice.restart_cancelled": "Windows did not give administrator rights, so Caduceus was not restarted.",
+  "blocked.already_administrator": "Dimmed: already running as administrator"
 }
