@@ -85,6 +85,6 @@ def test_the_table_is_read_as_utf_8_so_accented_titles_keep_the_columns_aligned(
         stdout = TABLE.encode("utf-8")
 
     monkeypatch.setattr("shutil.which", lambda _name: "winget.exe")
-    monkeypatch.setattr(winget_upgrades.subprocess, "run", lambda *_a, **_k: Result())
+    monkeypatch.setattr("subprocess.run", lambda *_a, **_k: Result())
 
     assert [app.version for app in list_upgradable()] == ["2.101.0", "< 175.2.0.1"]
