@@ -436,6 +436,13 @@ SETTINGS_MENU = Menu(
             description_key="settings.safe_mode.description",
             setting="safe_mode",
         ),
+        MenuItem(
+            "menu.restart_admin",
+            action=restart_as_administrator,
+            description_key="menu.restart_admin.description",
+            only_without_admin=True,
+            instant=True,
+        ),
     ),
 )
 
@@ -447,13 +454,6 @@ MAIN_MENU = Menu(
             "menu.maintenance",
             MAINTENANCE_MENU,
             description_key="menu.maintenance.description",
-        ),
-        MenuItem(
-            "menu.restart_admin",
-            action=restart_as_administrator,
-            description_key="menu.restart_admin.description",
-            only_without_admin=True,
-            instant=True,
         ),
         MenuItem(
             "menu.settings",

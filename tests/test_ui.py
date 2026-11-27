@@ -11,6 +11,7 @@ from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import (
     MAIN_MENU,
     MEMORY_MENU,
+    SETTINGS_MENU,
     MenuItem,
     item_label,
     programs_menu,
@@ -107,8 +108,14 @@ def screen_lines(navigation: Navigation, height: int = WINDOW_LINES) -> list[str
 
 
 def test_restart_as_administrator_is_shown_only_without_administrator() -> None:
-    without = "\n".join(screen_lines(Navigation(administrator=False)))
-    with_admin = "\n".join(screen_lines(Navigation(administrator=True)))
+    def settings(administrator: bool) -> str:
+        navigation = Navigation(
+            menus=(MAIN_MENU, SETTINGS_MENU), selected=(2, 0), administrator=administrator
+        )
+        return "\n".join(screen_lines(navigation))
+
+    without = settings(administrator=False)
+    with_admin = settings(administrator=True)
 
     assert "Restart as administrator" in without
     assert "Restart as administrator" not in with_admin

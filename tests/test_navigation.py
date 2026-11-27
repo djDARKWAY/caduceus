@@ -491,21 +491,23 @@ def test_a_list_where_everything_needs_safe_mode_off_stays_closed_and_says_why()
     assert opened.notice == "notice.nothing_selectable"
 
 
-def main_menu_at_restart(administrator: bool) -> Navigation:
-    restart = next(i for i, item in enumerate(MAIN_MENU.items) if item.only_without_admin)
-    return Navigation(selected=(restart,), administrator=administrator)
+def settings_at_restart(administrator: bool) -> Navigation:
+    restart = next(i for i, item in enumerate(SETTINGS_MENU.items) if item.only_without_admin)
+    return Navigation(
+        menus=(MAIN_MENU, SETTINGS_MENU), selected=(_SETTINGS, restart), administrator=administrator
+    )
 
 
 def test_restart_as_administrator_is_offered_only_without_administrator() -> None:
-    without = press(main_menu_at_restart(administrator=False), Key.ENTER)
-    with_admin = main_menu_at_restart(administrator=True)
+    without = press(settings_at_restart(administrator=False), Key.ENTER)
+    with_admin = settings_at_restart(administrator=True)
 
     assert without.running is not None
     assert press(with_admin, Key.ENTER) == with_admin
 
 
 def test_when_the_restart_goes_ahead_the_app_closes_without_a_result() -> None:
-    running = press(main_menu_at_restart(administrator=False), Key.ENTER)
+    running = press(settings_at_restart(administrator=False), Key.ENTER)
 
     done = complete(running, Outcome(0, 0, quit_after=True))
 
@@ -515,7 +517,7 @@ def test_when_the_restart_goes_ahead_the_app_closes_without_a_result() -> None:
 
 
 def test_when_the_user_declines_the_windows_prompt_a_notice_is_shown() -> None:
-    running = press(main_menu_at_restart(administrator=False), Key.ENTER)
+    running = press(settings_at_restart(administrator=False), Key.ENTER)
 
     done = complete(running, Outcome(0, 0, notice="notice.restart_cancelled"))
 

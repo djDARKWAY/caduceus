@@ -136,12 +136,14 @@ def _render_option(
     texts: Texts, item: MenuItem, is_selected: bool, settings: Settings, blocked: bool = False
 ) -> Text:
     style = "dim" if blocked else (SELECTED_STYLE if is_selected else "")
+    if not (blocked or is_selected) and item.choice is not None and not item.choice[1]:
+        style = DANGER  # a escolha «desligado» (OFF) a vermelho
     option = Text(f" {item_label(texts, item)} ", style=style)
     is_on = _is_on(item, settings)
     if is_on is not None:
         option.append(
             texts["setting.on" if is_on else "setting.off"],
-            style=ACCENT,
+            style=ACCENT if is_on else DANGER,
         )
         option.append(" ")
     option.pad_right(max(0, MENU_WIDTH - option.cell_len))
