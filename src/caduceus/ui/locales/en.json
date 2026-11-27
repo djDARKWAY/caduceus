@@ -88,7 +88,7 @@
   "action.step": "Starting...",
   "estimate.step": "Estimating the space to free: {name}",
   "confirm.title": "ARE YOU SURE?",
-  "confirm.skipped": "Skipped, because Safe mode is ON:",
+  "confirm.skipped": "Skipped (Safe mode is ON, or it needs administrator):",
   "result.more": "  ...and {count} more",
   "notice.settings_not_saved": "Could not save the setting. It applies until Caduceus closes.",
   "maintenance.memory": "Memory (RAM)",
@@ -110,7 +110,12 @@
   "memory.startup": "Startup programs",
   "memory.startup.description": "Shows the programs that start with Windows, how much memory each one uses right now, and lets you turn each one off or on again. Turning one off only stops it from starting with Windows: it stays installed and nothing is deleted. Services (security, VPN, drivers, databases) can only be changed with Safe mode OFF, and are skipped by the cursor while it is ON.\n• Impact · estimated from the memory in use now\n• ENTER · switches the selected program ON or OFF",
   "memory.hibernation": "Hibernation",
-  "memory.hibernation.description": "Shows whether hibernation is ON or OFF and switches it. Turning it OFF frees the space Windows reserves for it and also turns off Fast Startup; turning it ON reserves that space again. This is a system setting, not a disk cleanup. Turning it off asks for confirmation. Only available with Safe mode OFF.\n• Hibernation · hiberfil.sys (about 40% of RAM)\n• Startup · Fast Startup depends on it",
+  "memory.hibernation.description": "Shows whether hibernation is ON or OFF and opens the options to switch it. It is a system setting, not a disk cleanup. Only available with Safe mode OFF.\n• OFF · frees the space Windows reserves for it\n• ON · reserves that space again",
+  "memory.hibernation.title": "HIBERNATION",
+  "memory.hibernation.off": "OFF",
+  "memory.hibernation.off.description": "Turns hibernation off with the official Windows command (powercfg /hibernate off) and frees the space Windows reserves for it. Fast Startup is turned off too. It asks for confirmation first. Only available with Safe mode OFF.\n• Hibernation · hiberfil.sys (about 40% of RAM)\n• Startup · Fast Startup depends on it",
+  "memory.hibernation.on": "ON",
+  "memory.hibernation.on.description": "Turns hibernation on with the official Windows command (powercfg /hibernate on). Windows reserves disk space for it again, and Fast Startup becomes available. Only available with Safe mode OFF.\n• Hibernation · hiberfil.sys (about 40% of RAM)",
   "memory.hibernation.confirm": "This turns off hibernation and deletes C:\\hiberfil.sys. Fast Startup is turned off too, so Windows may start more slowly, and you can no longer hibernate. To undo it, run powercfg /hibernate on as administrator.",
   "restore_points.step": "Deleting the restore points (this can take a while)",
   "hibernation.step": "Changing the hibernation setting",
@@ -150,5 +155,7 @@
   "startup.type.program": "Program",
   "startup.type.service": "Service",
   "table.program": "Program",
-  "table.state": "State"
+  "table.state": "State",
+  "blocked.administrator": "Dimmed: run Caduceus as administrator",
+  "blocked.safe_mode": "Dimmed: turn Safe mode OFF"
 }

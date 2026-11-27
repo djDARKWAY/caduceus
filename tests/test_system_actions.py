@@ -80,7 +80,12 @@ def test_without_any_free_cleanup_profile_nothing_runs() -> None:
 
 
 @pytest.mark.parametrize(
-    "action", [restore_points.clean_restore_points, hibernation.toggle_hibernation]
+    "action",
+    [
+        restore_points.clean_restore_points,
+        hibernation.turn_off_hibernation,
+        hibernation.turn_on_hibernation,
+    ],
 )
 def test_system_setting_actions_without_administrator_ask_for_it_and_run_nothing(
     action: Action, monkeypatch: pytest.MonkeyPatch
@@ -143,7 +148,7 @@ def test_a_failed_system_tool_is_reported_as_a_failure_and_not_as_space_freed(
     monkeypatch.setattr(hibernation, "is_admin", lambda: True)
     monkeypatch.setattr(subprocess, "Popen", lambda command, **_kwargs: FakeProcess(command, 1))
 
-    outcome = hibernation.toggle_hibernation(lambda _: None)
+    outcome = hibernation.turn_off_hibernation(lambda _: None)
 
     assert outcome.failures
     assert outcome.rows == ()
@@ -171,9 +176,12 @@ def test_a_running_tool_reports_progress_under_the_step_it_was_given(
     assert (0, 0) in [(step.done, step.total) for step in steps]  # a barra anima-se até ao fim
 
 
-@pytest.mark.parametrize(("is_on", "expected_argument"), [(True, "off"), (False, "on")])
-def test_hibernation_is_switched_to_the_opposite_of_its_current_state(
-    is_on: bool, expected_argument: str, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("action", "expected_argument"),
+    [(hibernation.turn_off_hibernation, "off"), (hibernation.turn_on_hibernation, "on")],
+)
+def test_each_hibernation_option_runs_its_own_command(
+    action: Action, expected_argument: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     launched: list[FakeProcess] = []
 
@@ -182,10 +190,9 @@ def test_hibernation_is_switched_to_the_opposite_of_its_current_state(
         return launched[-1]
 
     monkeypatch.setattr(hibernation, "is_admin", lambda: True)
-    monkeypatch.setattr(hibernation, "is_hibernation_on", lambda: is_on)
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
 
-    outcome = hibernation.toggle_hibernation(lambda _: None)
+    outcome = action(lambda _: None)
 
     assert [process.command[1:] for process in launched] == [["/hibernate", expected_argument]]
     assert len(outcome.rows) == 1

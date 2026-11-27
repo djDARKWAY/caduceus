@@ -8,6 +8,7 @@ from caduceus.controllers.menus import (
     MAIN_MENU,
     MAINTENANCE_MENU,
     MEMORY_MENU,
+    AdminNeed,
     Menu,
     MenuItem,
 )
@@ -285,29 +286,74 @@ def test_after_run_all_every_estimate_is_calculated_again() -> None:
     )
 
 
-def hibernation_menu(is_on: bool) -> Navigation:
-    hibernation = next(i for i in MEMORY_MENU.items if i.label_key == "memory.hibernation")
-    item = replace(hibernation, state=lambda: is_on)
-    menu = replace(MEMORY_MENU, items=(item,))
-    return Navigation(menus=(MAIN_MENU, menu), selected=(0, 0), settings=Settings(safe_mode=False))
+def open_hibernation(safe_mode: bool = False, administrator: bool = True) -> Navigation:
+    navigation = Navigation(
+        menus=(MAIN_MENU, MEMORY_MENU),
+        selected=(0, 1),
+        settings=Settings(safe_mode=safe_mode),
+        administrator=administrator,
+    )
+    assert navigation.item.label_key == "memory.hibernation"
+    return press(navigation, Key.ENTER)
+
+
+def test_hibernation_opens_a_submenu_with_off_and_on() -> None:
+    navigation = open_hibernation()
+
+    assert [item.label_key for item in navigation.menu.items] == [
+        "memory.hibernation.off",
+        "memory.hibernation.on",
+    ]
 
 
 def test_turning_hibernation_off_asks_for_confirmation() -> None:
-    assert press(hibernation_menu(is_on=True), Key.ENTER).confirming
+    assert press(open_hibernation(), Key.ENTER).confirming
 
 
-def test_turning_hibernation_back_on_runs_straight_away() -> None:
-    navigation = press(hibernation_menu(is_on=False), Key.ENTER)
+def test_turning_hibernation_on_runs_straight_away() -> None:
+    navigation = press(press(open_hibernation(), Key.DOWN), Key.ENTER)
 
     assert navigation.running is not None
     assert not navigation.confirming
 
 
-@pytest.mark.parametrize("is_on", [True, False])
-def test_safe_mode_blocks_hibernation_in_both_directions(is_on: bool) -> None:
-    navigation = replace(hibernation_menu(is_on), settings=Settings(safe_mode=True))
+def test_safe_mode_blocks_hibernation_before_the_submenu() -> None:
+    navigation = Navigation(
+        menus=(MAIN_MENU, MEMORY_MENU), selected=(0, 1), settings=Settings(safe_mode=True)
+    )
 
     assert press(navigation, Key.ENTER) == navigation
+
+
+def blocked_by_admin_menu(administrator: bool) -> Navigation:
+    def option(label: str, admin: AdminNeed | None) -> MenuItem:
+        return MenuItem(label, label=label, action=lambda _report: Outcome(0, 0), admin=admin)
+
+    items = (option("a", None), option("b", AdminNeed.ALL), option("c", AdminNeed.SOME))
+    return Navigation(
+        menus=(MAIN_MENU, Menu("memory.title", items)),
+        selected=(0, 0),
+        settings=Settings(safe_mode=False),
+        administrator=administrator,
+    )
+
+
+def test_without_administrator_the_cursor_skips_what_needs_it_and_never_opens_a_result() -> None:
+    navigation = blocked_by_admin_menu(administrator=False)
+
+    visited = [navigation.index]
+    for _ in range(3):
+        navigation = press(navigation, Key.DOWN)
+        visited.append(navigation.index)
+
+    assert visited == [0, 2, 0, 2]
+    assert press(replace(navigation, selected=(0, 1)), Key.ENTER).running is None
+
+
+def test_with_administrator_everything_can_be_selected() -> None:
+    navigation = blocked_by_admin_menu(administrator=True)
+
+    assert press(navigation, Key.DOWN).index == 1
 
 
 def instant_menu(outcome: Outcome) -> Navigation:

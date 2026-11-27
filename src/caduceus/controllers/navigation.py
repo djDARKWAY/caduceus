@@ -3,18 +3,18 @@ Navegação
 
 Lógica pura da navegação nos menus: dado o estado e uma tecla, devolve o novo estado. Um menu com
 estimativas (o da limpeza) calcula-as ao abrir e, depois de cada ação, só a dessa ação. Uma opção
-bloqueada pelo Modo seguro não se pode selecionar: o cursor salta-a. Com o resultado de uma ação
-no ecrã, só o ENTER faz alguma coisa (volta ao menu); com um pedido de confirmação, só o ENTER
-(confirma) e o BACKSPACE (cancela); com um aviso, só o BACKSPACE (volta). Não lê
-teclas, não desenha e não corre ações: quando uma opção tem ação, o estado fica com `running` e
-é a aplicação que a corre e depois chama `complete`.
+bloqueada pelo Modo seguro, ou que exige um administrador que não há, não se pode selecionar: o
+cursor salta-a. Com o resultado de uma ação no ecrã, só o ENTER faz alguma coisa (volta ao menu);
+com um pedido de confirmação, só o ENTER (confirma) e o BACKSPACE (cancela); com um aviso, só o
+BACKSPACE (volta). Não lê teclas, não desenha e não corre ações: quando uma opção tem ação, o estado
+fica com `running` e é a aplicação que a corre e depois chama `complete`.
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 
 from caduceus.controllers.keys import Key
-from caduceus.controllers.menus import MAIN_MENU, Menu, MenuItem
+from caduceus.controllers.menus import MAIN_MENU, AdminNeed, Menu, MenuItem
 from caduceus.maintenance.actions import Action, Outcome
 from caduceus.maintenance.free_space.run_all import run_all
 from caduceus.settings import Settings
@@ -32,6 +32,7 @@ class Navigation:
     to_estimate: tuple[str, ...] = ()  # chaves das opções cuja estimativa falta calcular
     estimates: Mapping[str, int | None] = field(default_factory=dict)
     settings: Settings = field(default_factory=Settings)
+    administrator: bool = True  # falso quando o Caduceus não corre como administrador
     running: Action | None = None
     outcome: Outcome | None = None
     finished: bool = False
@@ -57,8 +58,19 @@ def _estimable(menu: Menu) -> tuple[str, ...]:
     return tuple(item.label_key for item in menu.items if item.estimate is not None)
 
 
-def is_blocked(navigation: Navigation, item: MenuItem) -> bool:
+def blocked_by_safe_mode(navigation: Navigation, item: MenuItem) -> bool:
     return item.risky and navigation.settings.safe_mode
+
+
+def blocked_by_missing_administrator(navigation: Navigation, item: MenuItem) -> bool:
+    """As opções que só funcionam como administrador não se escolhem sem ele: não fariam nada."""
+    return item.admin is AdminNeed.ALL and not navigation.administrator
+
+
+def is_blocked(navigation: Navigation, item: MenuItem) -> bool:
+    return blocked_by_safe_mode(navigation, item) or blocked_by_missing_administrator(
+        navigation, item
+    )
 
 
 def _action_for(navigation: Navigation, item: MenuItem) -> Action | None:
@@ -94,7 +106,7 @@ def _enter(navigation: Navigation) -> Navigation:
     if is_blocked(navigation, item):
         return navigation
     if item.action is not None or item.runs_all:
-        if item.confirm_key is not None and (item.state is None or item.state()):
+        if item.confirm_key is not None:
             return replace(navigation, confirming=True)
         return replace(navigation, running=_action_for(navigation, item))
     submenu = item.submenu_loader() if item.submenu_loader is not None else item.submenu

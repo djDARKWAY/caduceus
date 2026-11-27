@@ -30,7 +30,11 @@ from caduceus.maintenance.free_space.system_caches import (
 from caduceus.maintenance.free_space.temp_files import clean_temp_files, estimate_temp_files
 from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, estimate_windows_logs
 from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
-from caduceus.maintenance.memory.hibernation import is_hibernation_on, toggle_hibernation
+from caduceus.maintenance.memory.hibernation import (
+    is_hibernation_on,
+    turn_off_hibernation,
+    turn_on_hibernation,
+)
 from caduceus.maintenance.memory.startup_programs import (
     StartupEntry,
     StartupSource,
@@ -73,7 +77,7 @@ class MenuItem:
     estimate: Estimator | None = None
     setting: str | None = None
     runs_all: bool = False
-    state: Callable[[], bool] | None = None
+    state: Callable[[], bool] | None = None  # o estado ligado/desligado, mostrado ao lado do nome
     label: str | None = None
     description_values: Mapping[str, str] = field(default_factory=dict)
     cells: tuple[int | str | None, ...] = ()
@@ -223,6 +227,27 @@ def startup_menu() -> Menu:
     )
 
 
+HIBERNATION_MENU = Menu(
+    "memory.hibernation.title",
+    (
+        MenuItem(
+            "memory.hibernation.off",
+            action=turn_off_hibernation,
+            description_key="memory.hibernation.off.description",
+            admin=AdminNeed.ALL,
+            risky=True,
+            confirm_key="memory.hibernation.confirm",
+        ),
+        MenuItem(
+            "memory.hibernation.on",
+            action=turn_on_hibernation,
+            description_key="memory.hibernation.on.description",
+            admin=AdminNeed.ALL,
+            risky=True,
+        ),
+    ),
+)
+
 MEMORY_MENU = Menu(
     "memory.title",
     (
@@ -233,12 +258,11 @@ MEMORY_MENU = Menu(
         ),
         MenuItem(
             "memory.hibernation",
-            action=toggle_hibernation,
+            HIBERNATION_MENU,
             state=is_hibernation_on,
             description_key="memory.hibernation.description",
             admin=AdminNeed.ALL,
             risky=True,
-            confirm_key="memory.hibernation.confirm",
         ),
     ),
 )

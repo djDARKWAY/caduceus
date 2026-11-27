@@ -27,6 +27,7 @@ from caduceus.controllers.navigation import (
     press,
 )
 from caduceus.maintenance.actions import Step
+from caduceus.maintenance.admin import is_admin
 from caduceus.settings import load_settings, save_settings
 from caduceus.ui.i18n import Texts
 from caduceus.ui.render import open_display, show, show_progress
@@ -78,7 +79,7 @@ def _run_estimates(display: Live, texts: Texts, navigation: Navigation) -> Navig
 
 
 def run(console: Console, texts: Texts) -> None:
-    navigation = Navigation(settings=load_settings())
+    navigation = Navigation(settings=load_settings(), administrator=is_admin())
     with open_display(console, texts, navigation) as display:
         while not navigation.finished:
             updated = press(navigation, read_key())

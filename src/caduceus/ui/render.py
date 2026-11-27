@@ -30,7 +30,12 @@ from caduceus.config import (
     STARTUP_VISIBLE_ROWS,
 )
 from caduceus.controllers.menus import MenuItem
-from caduceus.controllers.navigation import Navigation, is_blocked
+from caduceus.controllers.navigation import (
+    Navigation,
+    blocked_by_missing_administrator,
+    blocked_by_safe_mode,
+    is_blocked,
+)
 from caduceus.maintenance.actions import Outcome, Step
 from caduceus.settings import Settings
 from caduceus.ui.assets import LOGO_LINES, NAME_LINES, NAME_WIDTH
@@ -216,15 +221,32 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
             style=SELECTED_STYLE if selected else ("dim" if blocked else ""),
         )
     found = sum(item.action is not None for item in menu.items)
-    title = f"{texts[menu.title_key]} ({found})"
-    return Group(Text(title, style=f"bold {ACCENT}"), table)
+    return Group(_menu_title(texts, navigation, found), table)
+
+
+def _menu_title(texts: Texts, navigation: Navigation, count: int | None = None) -> Text:
+    """O título do menu (com a contagem, se houver) e, a esbatido, porque há opções esbatidas."""
+    title = texts[navigation.menu.title_key] + ("" if count is None else f" ({count})")
+    text = Text(title, style=f"bold {ACCENT}")
+    items = navigation.menu.items
+    reasons = [
+        texts[key]
+        for key, blocked in (
+            ("blocked.administrator", blocked_by_missing_administrator),
+            ("blocked.safe_mode", blocked_by_safe_mode),
+        )
+        if any(blocked(navigation, item) for item in items)
+    ]
+    if reasons:
+        text.append("  " + " · ".join(reasons), style=DETAIL_STYLE)
+    return text
 
 
 def _render_options(texts: Texts, navigation: Navigation) -> tuple[RenderableType, int]:
     """As opções do menu e as linhas que ocupam antes da primeira (para alinhar a descrição)."""
     if navigation.menu.columns:
         return _render_cells_table(texts, navigation), _TABLE_HEADER_LINES
-    title = Text(texts[navigation.menu.title_key], style=f"bold {ACCENT}")
+    title = _menu_title(texts, navigation)
     if any(item.estimate is not None for item in navigation.menu.items):
         return Group(title, _render_estimates_table(texts, navigation)), _TABLE_HEADER_LINES
     options = [title]
