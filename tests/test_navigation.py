@@ -28,6 +28,9 @@ SCAN, MAINTENANCE, _SETTINGS, EXIT = range(4)
 WINDOWS_OLD_OPTION = next(
     index for index, item in enumerate(CLEANUP_MENU.items) if item.action is clean_windows_old
 )
+RECYCLE_BIN_OPTION = next(
+    index for index, item in enumerate(CLEANUP_MENU.items) if item.action is empty_recycle_bin
+)
 RISKY_OPTIONS = {index for index, item in enumerate(CLEANUP_MENU.items) if item.risky}
 
 
@@ -203,10 +206,18 @@ def test_safe_mode_does_not_block_the_harmless_actions() -> None:
 
 
 def test_the_recycle_bin_runs_straight_away_even_with_safe_mode_on() -> None:
-    navigation = press_all(*CLEANUP_PATH, Key.DOWN, Key.ENTER, safe_mode=True)
+    # Com o Modo seguro ligado, o cursor salta as opções arriscadas que vêm antes
+    moves = RECYCLE_BIN_OPTION - len([i for i in RISKY_OPTIONS if i < RECYCLE_BIN_OPTION])
+    navigation = press_all(*CLEANUP_PATH, *[Key.DOWN] * moves, Key.ENTER, safe_mode=True)
 
     assert navigation.running is empty_recycle_bin
     assert not navigation.confirming
+
+
+def test_the_recycle_bin_is_the_last_cleanup_so_it_also_empties_what_the_others_leave() -> None:
+    actions = [item.action for item in CLEANUP_MENU.items if item.action is not None]
+
+    assert actions[-1] is empty_recycle_bin
 
 
 def test_with_safe_mode_off_windows_old_asks_for_confirmation() -> None:

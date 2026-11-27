@@ -107,12 +107,6 @@ CLEANUP_MENU = Menu(
             estimate=estimate_temp_files,
         ),
         MenuItem(
-            "cleanup.recycle_bin",
-            action=empty_recycle_bin,
-            description_key="cleanup.recycle_bin.description",
-            estimate=estimate_recycle_bin,
-        ),
-        MenuItem(
             "cleanup.hidden_junk",
             action=clean_hidden_junk,
             description_key="cleanup.hidden_junk.description",
@@ -173,6 +167,13 @@ CLEANUP_MENU = Menu(
             risky=True,
             confirm_key="cleanup.windows_old.confirm",
             estimate=estimate_windows_old,
+        ),
+        # A reciclagem fica por último, para esvaziar também o que as limpezas anteriores lá deixem
+        MenuItem(
+            "cleanup.recycle_bin",
+            action=empty_recycle_bin,
+            description_key="cleanup.recycle_bin.description",
+            estimate=estimate_recycle_bin,
         ),
         MenuItem(
             "cleanup.all",
