@@ -8,6 +8,8 @@ from caduceus.controllers.menus import (
     MAIN_MENU,
     MAINTENANCE_MENU,
     MEMORY_MENU,
+    SAFE_MODE_MENU,
+    SETTINGS_MENU,
     AdminNeed,
     Menu,
     MenuItem,
@@ -18,7 +20,7 @@ from caduceus.controllers.navigation import (
     finish_estimates,
     press,
 )
-from caduceus.maintenance.actions import Outcome
+from caduceus.maintenance.actions import Outcome, Report
 from caduceus.maintenance.free_space.recycle_bin import empty_recycle_bin
 from caduceus.maintenance.free_space.temp_files import clean_temp_files
 from caduceus.maintenance.free_space.windows_old import clean_windows_old
@@ -231,13 +233,25 @@ def test_with_safe_mode_off_windows_old_asks_for_confirmation() -> None:
     assert navigation.confirming
 
 
-def test_enter_on_the_safe_mode_setting_toggles_it() -> None:
+def test_enter_on_the_safe_mode_setting_opens_the_on_and_off_options() -> None:
     opened = press_all(*SETTINGS_PATH, safe_mode=True)
-    off = press(opened, Key.ENTER)
-    on_again = press(off, Key.ENTER)
+
+    options = press(opened, Key.ENTER)
+
+    assert options.menu is SAFE_MODE_MENU
+    assert options.settings.safe_mode
+
+
+def test_choosing_off_and_then_on_changes_safe_mode_and_returns_to_the_settings() -> None:
+    options = press(press_all(*SETTINGS_PATH, safe_mode=True), Key.ENTER)
+
+    off = press(press(options, Key.DOWN), Key.ENTER)
+    on_again = press(press(off, Key.ENTER), Key.ENTER)  # o submenu abre no ON
 
     assert not off.settings.safe_mode
+    assert off.menu is SETTINGS_MENU
     assert on_again.settings.safe_mode
+    assert on_again.menu is SETTINGS_MENU
 
 
 def test_opening_the_cleanup_menu_asks_for_the_estimates_and_ignores_keys_meanwhile() -> None:
@@ -481,6 +495,32 @@ def test_when_the_user_declines_the_windows_prompt_a_notice_is_shown() -> None:
 
     assert not done.finished
     assert done.notice == "notice.restart_cancelled"
+
+
+def test_after_an_uninstall_the_list_is_created_again_without_the_program() -> None:
+    installed = ["Alpha", "Beta", "Gamma"]
+
+    def program(name: str) -> MenuItem:
+        def uninstall(_report: Report) -> Outcome:
+            installed.remove(name)
+            return Outcome(1, 0)
+
+        return MenuItem(f"program:{name}", label=name, action=uninstall, refreshes_menu=True)
+
+    def loader() -> Menu:
+        return Menu("programs.title", tuple(program(name) for name in installed))
+
+    parent = Menu("apps.title", (MenuItem("apps.programs", submenu_loader=loader),))
+    start = Navigation(menus=(MAIN_MENU, parent), selected=(0, 0))
+    navigation = press(press(start, Key.ENTER), Key.DOWN)
+    running = press(navigation, Key.ENTER)
+    assert running.running is not None
+    done = complete(running, running.running(lambda _step: None))
+
+    back = press(done, Key.ENTER)
+
+    assert [item.label for item in back.menu.items] == ["Alpha", "Gamma"]
+    assert back.item.label == "Gamma"
 
 
 def test_without_administrator_the_scheduled_tasks_cannot_even_be_opened() -> None:

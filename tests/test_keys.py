@@ -27,6 +27,22 @@ def test_ctrl_c_quits_the_application(monkeypatch: pytest.MonkeyPatch, char: str
     assert press(monkeypatch, char) is Key.QUIT
 
 
+@pytest.mark.parametrize("number", range(1, 10))
+def test_the_digits_from_1_to_9_choose_the_columns_counted_from_zero(
+    monkeypatch: pytest.MonkeyPatch, number: int
+) -> None:
+    key = press(monkeypatch, str(number))
+
+    assert key is Key[f"COLUMN_{number}"]
+    assert key.column == number - 1
+
+
+def test_only_the_digits_from_1_to_9_are_column_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    assert press(monkeypatch, "0") is Key.OTHER
+    assert Key.ENTER.column is None
+    assert Key.OTHER.column is None
+
+
 def test_unknown_keys_are_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
     assert press(monkeypatch, "x") is Key.OTHER
     assert press(monkeypatch, "\xe0", "K") is Key.OTHER

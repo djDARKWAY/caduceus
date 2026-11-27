@@ -11,6 +11,12 @@ from enum import Enum
 
 from caduceus.maintenance.actions import Action, Estimator
 from caduceus.maintenance.admin import restart_as_administrator
+from caduceus.maintenance.apps.installed_programs import (
+    InstalledProgram,
+    list_installed_programs,
+    remove_leftover_entry,
+    uninstall_program,
+)
 from caduceus.maintenance.free_space.app_caches import clean_app_caches, estimate_app_caches
 from caduceus.maintenance.free_space.browser_caches import (
     clean_browser_caches,
@@ -62,14 +68,18 @@ class AdminNeed(Enum):
 # `admin` diz se (parte d)a opção só funciona como administrador; `risky`, as ações que o
 # Modo seguro bloqueia; `confirm_key`, as que só correm depois de o utilizador confirmar o aviso
 # com esse texto; `estimate`, o que calcula quanto a ação deve libertar (para a tabela do menu);
-# `setting`, o nome da definição que a opção liga ou desliga; `runs_all`, a opção que corre todas as
+# `setting`, o nome da definição cujo estado a opção mostra (e que o seu submenu muda); `choice`, a
+# definição e o valor que a opção grava ao ser escolhida (volta ao menu anterior);
+# `runs_all`, a opção que corre todas as
 # ações do menu que o Modo seguro deixa correr; `state`, o estado atual (ligado ou desligado) que a
 # ação inverte, mostrado ao lado do nome. O aviso de `confirm_key` só aparece quando o estado é
 # ligado (a direção que pode ter consequências). `label`, `description_values` e `cells` são para as
 # opções que se criam ao abrir o menu: o nome (em vez de `label_key`), os valores que completam o
 # texto da descrição e as colunas da tabela (um número é uma memória em bytes, um texto é a chave
 # de um texto traduzido, e None é «não se sabe»); `submenu_loader`, o que cria o submenu ao entrar
-# nele; `instant`, as ações tão rápidas que só mostram o resultado se algo correr mal.
+# nele; `instant`, as ações tão rápidas que só mostram o resultado se algo correr mal;
+# `refreshes_menu`, as ações que mudam a lista (por exemplo, desinstalar), que volta a criar-se
+# quando o utilizador sai do resultado.
 @dataclass(frozen=True)
 class MenuItem:
     label_key: str
@@ -82,6 +92,7 @@ class MenuItem:
     confirm_key: str | None = None
     estimate: Estimator | None = None
     setting: str | None = None
+    choice: tuple[str, bool] | None = None
     runs_all: bool = False
     state: Callable[[], bool] | None = None  # o estado ligado/desligado, mostrado ao lado do nome
     only_without_admin: bool = False  # só faz sentido sem administrador (fica esbatida com ele)
@@ -90,6 +101,7 @@ class MenuItem:
     cells: tuple[int | str | None, ...] = ()
     submenu_loader: Callable[[], "Menu"] | None = None
     instant: bool = False
+    refreshes_menu: bool = False
 
 
 # `columns` são os títulos (a chave do texto) e a largura das colunas das células das opções,
@@ -99,6 +111,10 @@ class Menu:
     title_key: str
     items: tuple[MenuItem, ...]
     columns: tuple[tuple[str, int], ...] = ()
+
+
+def item_label(texts: Mapping[str, str], item: MenuItem) -> str:
+    return item.label if item.label is not None else texts.get(item.label_key, item.label_key)
 
 
 CLEANUP_MENU = Menu(
@@ -316,6 +332,53 @@ MEMORY_MENU = Menu(
     ),
 )
 
+
+def _program_item(program: InstalledProgram) -> MenuItem:
+    """Um programa da lista. Se o desinstalador já não existe, escolher o programa limpa o resto
+    que ficou no registo (e não abre nada); essa limpeza não põe o sistema em risco."""
+    if program.has_missing_uninstaller:
+        action, confirm_key = remove_leftover_entry(program), "programs.stale.confirm"
+        description_key, risky = "programs.item.stale.description", False
+        admin = AdminNeed.ALL if program.entry_needs_admin else None
+    else:
+        action, confirm_key = uninstall_program(program), "programs.confirm"
+        description_key = (
+            "programs.item.protected.description"
+            if program.needs_safe_mode_off
+            else "programs.item.description"
+        )
+        risky, admin = program.needs_safe_mode_off, None
+    return MenuItem(
+        f"program:{program.hive}:{program.key_path}",
+        label=program.name,
+        action=action,
+        description_key=description_key,
+        description_values={
+            "name": program.name,
+            "publisher": program.publisher or "-",
+            "version": program.version or "-",
+            "installed": program.installed_on or "-",
+            "command": program.uninstall_command,
+            "location": program.install_location or "-",
+        },
+        admin=admin,
+        risky=risky,
+        confirm_key=confirm_key,
+        cells=(program.size_bytes,),
+        refreshes_menu=True,
+    )
+
+
+def programs_menu() -> Menu:
+    """O menu dos programas instalados, criado a partir do que o Windows tem registado agora."""
+    items = tuple(_program_item(program) for program in list_installed_programs())
+    return Menu(
+        "programs.title",
+        items or (MenuItem("programs.none", description_key="programs.none.description"),),
+        (("programs.column.size", 9),),
+    )
+
+
 MAINTENANCE_MENU = Menu(
     "maintenance.title",
     (
@@ -329,6 +392,27 @@ MAINTENANCE_MENU = Menu(
             MEMORY_MENU,
             description_key="maintenance.memory.description",
         ),
+        MenuItem(
+            "maintenance.uninstall",
+            submenu_loader=programs_menu,
+            description_key="maintenance.uninstall.description",
+        ),
+    ),
+)
+
+SAFE_MODE_MENU = Menu(
+    "settings.safe_mode.title",
+    (
+        MenuItem(
+            "setting.on",
+            description_key="settings.safe_mode.on.description",
+            choice=("safe_mode", True),
+        ),
+        MenuItem(
+            "setting.off",
+            description_key="settings.safe_mode.off.description",
+            choice=("safe_mode", False),
+        ),
     ),
 )
 
@@ -337,6 +421,7 @@ SETTINGS_MENU = Menu(
     (
         MenuItem(
             "settings.safe_mode",
+            SAFE_MODE_MENU,
             description_key="settings.safe_mode.description",
             setting="safe_mode",
         ),

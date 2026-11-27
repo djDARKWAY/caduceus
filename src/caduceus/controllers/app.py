@@ -80,7 +80,7 @@ def _run_estimates(display: Live, texts: Texts, navigation: Navigation) -> Navig
 
 def run(console: Console, texts: Texts) -> bool:
     """Corre a aplicação até sair e diz se a consola também deve fechar."""
-    navigation = Navigation(settings=load_settings(), administrator=is_admin())
+    navigation = Navigation(settings=load_settings(), administrator=is_admin(), texts=texts)
     with open_display(console, texts, navigation) as display:
         while not navigation.finished:
             updated = press(navigation, read_key())

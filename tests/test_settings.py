@@ -15,6 +15,13 @@ def test_without_a_saved_file_safe_mode_is_on() -> None:
     assert load_settings() == Settings(safe_mode=True)
 
 
+def test_a_setting_can_be_set_to_a_value_without_changing_the_original() -> None:
+    original = Settings(safe_mode=True)
+
+    assert not original.with_value("safe_mode", False).safe_mode
+    assert original.safe_mode
+
+
 def test_a_saved_setting_is_still_there_the_next_time() -> None:
     assert save_settings(Settings(safe_mode=False))
 

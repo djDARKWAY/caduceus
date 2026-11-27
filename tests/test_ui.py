@@ -1,16 +1,52 @@
 import io
+import winreg
 from dataclasses import replace
 
 import pytest
 from rich.console import Console
 
 from caduceus.config import SELECTED_STYLE, WINDOW_LINES
-from caduceus.controllers.menus import MAIN_MENU, MEMORY_MENU, MenuItem, startup_menu
-from caduceus.controllers.navigation import Navigation
+from caduceus.controllers import menus
+from caduceus.controllers.keys import Key
+from caduceus.controllers.menus import (
+    MAIN_MENU,
+    MEMORY_MENU,
+    MenuItem,
+    item_label,
+    programs_menu,
+    startup_menu,
+)
+from caduceus.controllers.navigation import Navigation, press
+from caduceus.maintenance.apps.installed_programs import InstalledProgram
+from caduceus.maintenance.memory.startup_programs import StartupEntry, StartupSource
 from caduceus.settings import Settings
 from caduceus.ui import render
 from caduceus.ui.i18n import load_texts
 from caduceus.ui.render import format_estimate, format_size
+
+
+@pytest.fixture(autouse=True)
+def fictitious_lists(monkeypatch: pytest.MonkeyPatch) -> None:
+    """As listas dos menus são fictícias, para os testes não dependerem do que a máquina tem."""
+    startup = [
+        StartupEntry(f"app{n}", f"App {n:02}", rf"C:\Apps\app{n}.exe", StartupSource.RUN_USER, None)
+        for n in range(25)
+    ]
+    programs = [
+        InstalledProgram(
+            f"Program {n:02}",
+            "Maker",
+            "1.0",
+            "",
+            (n + 1) * 1024,
+            rf"C:\Apps\un{n}.exe",
+            winreg.HKEY_CURRENT_USER,
+            f"Software\\CaduceusTests\\program{n}",
+        )
+        for n in range(12)
+    ]
+    monkeypatch.setattr(menus, "list_startup_entries", lambda: startup)
+    monkeypatch.setattr(menus, "list_installed_programs", lambda: programs)
 
 
 @pytest.mark.parametrize(
@@ -50,8 +86,8 @@ def test_an_option_created_at_runtime_shows_its_own_name() -> None:
     texts = load_texts("en")
     item = MenuItem("startup:run_user:Example", label="Example app")
 
-    assert render.item_label(texts, item) == "Example app"
-    assert render.item_label(texts, MenuItem("menu.exit")) == texts["menu.exit"]
+    assert item_label(texts, item) == "Example app"
+    assert item_label(texts, MenuItem("menu.exit")) == texts["menu.exit"]
 
 
 @pytest.mark.parametrize(
@@ -70,12 +106,36 @@ def screen_lines(navigation: Navigation, height: int = WINDOW_LINES) -> list[str
     return console.export_text().splitlines()
 
 
+def test_restart_as_administrator_is_shown_only_without_administrator() -> None:
+    without = "\n".join(screen_lines(Navigation(administrator=False)))
+    with_admin = "\n".join(screen_lines(Navigation(administrator=True)))
+
+    assert "Restart as administrator" in without
+    assert "Restart as administrator" not in with_admin
+
+
+def test_the_sort_key_appears_in_the_controls_of_the_tables_only() -> None:
+    programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 0))
+
+    assert "1-2 Sort" in screen_lines(programs)[-2]
+    assert "Sort" not in screen_lines(Navigation())[-2]
+
+
+def test_the_sorted_column_shows_the_direction_in_its_title() -> None:
+    programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 0))
+    by_size = press(press(programs, Key.COLUMN_2), Key.COLUMN_2)
+
+    assert any("Size ▼" in line for line in screen_lines(by_size))
+    assert not any("▲" in line or "▼" in line for line in screen_lines(programs))
+
+
 def test_the_controls_stay_above_a_free_last_line_whatever_the_screen_shows() -> None:
     main_menu = Navigation()
     startup_list = Navigation(menus=(MAIN_MENU, startup_menu()), selected=(0, 0))
     scrolled = replace(startup_list, selected=(0, len(startup_list.menu.items) - 1))
+    programs_list = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 0))
 
-    for navigation in (main_menu, startup_list, scrolled):
+    for navigation in (main_menu, startup_list, scrolled, programs_list):
         lines = screen_lines(navigation)
 
         assert lines[-2].startswith("  ↑ Up")

@@ -18,8 +18,8 @@ from caduceus.config import SETTINGS_FILE, SETTINGS_FOLDER
 class Settings:
     safe_mode: bool = True
 
-    def toggled(self, name: str) -> "Settings":
-        return replace(self, **{name: not getattr(self, name)})
+    def with_value(self, name: str, value: bool) -> "Settings":
+        return replace(self, **{name: value})
 
 
 def _settings_path() -> Path:

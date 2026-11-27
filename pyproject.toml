@@ -41,6 +41,7 @@ select = ["E", "W", "F", "I", "ARG", "ANN401", "PGH003", "T20", "BLE001", "S110"
 
 [tool.vulture]
 paths = ["src", "tests"]
-# Membros do enum MainMenuOption, usados ao iterar o enum
-ignore_names = ["SCAN", "MAINTENANCE", "SETTINGS"]
+# Membros do enum MainMenuOption, usados ao iterar o enum, e as teclas das colunas (Key.COLUMN_N),
+# que se escolhem pelo nome
+ignore_names = ["SCAN", "MAINTENANCE", "SETTINGS", "COLUMN_*"]
 ignore_decorators = ["@pytest.fixture"]
