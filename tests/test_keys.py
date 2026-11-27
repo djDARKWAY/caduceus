@@ -22,8 +22,8 @@ def test_enter_selects_and_backspace_goes_back(monkeypatch: pytest.MonkeyPatch) 
     assert press(monkeypatch, "\x08") is Key.BACK
 
 
-@pytest.mark.parametrize("char", ["q", "Q", "\x03"])
-def test_q_and_ctrl_c_quit_the_application(monkeypatch: pytest.MonkeyPatch, char: str) -> None:
+@pytest.mark.parametrize("char", ["\x03"])
+def test_ctrl_c_quits_the_application(monkeypatch: pytest.MonkeyPatch, char: str) -> None:
     assert press(monkeypatch, char) is Key.QUIT
 
 

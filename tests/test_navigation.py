@@ -96,7 +96,7 @@ def test_enter_on_exit_finishes() -> None:
     assert press_all(*[Key.DOWN] * EXIT, Key.ENTER).finished
 
 
-def test_q_finishes_from_any_menu() -> None:
+def test_quit_finishes_from_any_menu() -> None:
     navigation = press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.QUIT)
     assert navigation.finished
 

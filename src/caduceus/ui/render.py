@@ -44,11 +44,10 @@ HINTS = (
     ("↓", "hint.down"),
     ("ENTER", "hint.select"),
     ("BACKSPACE", "hint.back"),
-    ("Q", "hint.quit"),
 )
 
 OUTCOME_HINTS = (("ENTER", "hint.back"),)
-NOTICE_HINTS = (("BACKSPACE", "hint.back"), ("Q", "hint.quit"))
+NOTICE_HINTS = (("BACKSPACE", "hint.back"),)
 CONFIRM_HINTS = (("ENTER", "hint.confirm"), ("BACKSPACE", "hint.cancel"))
 
 NOT_COUNTED = "—"

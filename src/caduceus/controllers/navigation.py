@@ -5,7 +5,7 @@ Lógica pura da navegação nos menus: dado o estado e uma tecla, devolve o novo
 estimativas (o da limpeza) calcula-as ao abrir e, depois de cada ação, só a dessa ação. Uma opção
 bloqueada pelo Modo seguro não se pode selecionar: o cursor salta-a. Com o resultado de uma ação
 no ecrã, só o ENTER faz alguma coisa (volta ao menu); com um pedido de confirmação, só o ENTER
-(confirma) e o BACKSPACE (cancela); com um aviso, só o BACKSPACE (volta) e o Q (sai). Não lê
+(confirma) e o BACKSPACE (cancela); com um aviso, só o BACKSPACE (volta). Não lê
 teclas, não desenha e não corre ações: quando uma opção tem ação, o estado fica com `running` e
 é a aplicação que a corre e depois chama `complete`.
 """

@@ -19,7 +19,7 @@ class Key(Enum):
 
 
 _EXTENDED_KEYS = {"H": Key.UP, "P": Key.DOWN}
-_CHAR_KEYS = {"\r": Key.ENTER, "\x08": Key.BACK, "q": Key.QUIT, "Q": Key.QUIT, "\x03": Key.QUIT}
+_CHAR_KEYS = {"\r": Key.ENTER, "\x08": Key.BACK, "\x03": Key.QUIT}
 
 
 def discard_pending_keys() -> None:
