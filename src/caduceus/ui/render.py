@@ -10,16 +10,21 @@ from rich.live import Live
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.progress_bar import ProgressBar
+from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
 
 from caduceus import __version__
 from caduceus.config import (
+    CLEANUP_MIN_AGE_HOURS,
     CONFIRM_WIDTH,
     DETAIL_GAP,
     DETAIL_STYLE,
     DETAIL_WIDTH,
+    LOG_MIN_AGE_HOURS,
     MAX_LISTED_PLACES,
+    MENU_WIDTH,
+    PROGRESS_REFRESH_RATE,
     PROGRESS_WIDTH,
     SELECTED_STYLE,
 )
@@ -42,6 +47,7 @@ HINTS = (
 )
 
 OUTCOME_HINTS = (("ENTER", "hint.back"),)
+NOTICE_HINTS = (("BACKSPACE", "hint.back"), ("Q", "hint.quit"))
 CONFIRM_HINTS = (("ENTER", "hint.confirm"), ("BACKSPACE", "hint.cancel"))
 
 NOT_COUNTED = "—"
@@ -51,6 +57,8 @@ BULLET = "•"
 _BODY_PADDING = (1, 0, 0, 2)
 # Linhas da tabela antes da primeira opção: a em branco, os títulos das colunas e o separador
 _TABLE_HEADER_LINES = 3
+# O aviso de administrador fica ao nível dos títulos das colunas (a segunda linha do menu)
+_TABLE_WARNING_LINE = 2
 
 
 def _render_header(texts: Texts) -> RenderableType:
@@ -77,17 +85,25 @@ def _render_option(texts: Texts, item: MenuItem, is_selected: bool, settings: Se
             style=ACCENT if is_on else DANGER,
         )
         option.append(" ")
+    option.pad_right(max(0, MENU_WIDTH - option.cell_len))
     return option
 
 
-def _render_detail(texts: Texts, item: MenuItem, lead_lines: int) -> RenderableType:
+def _render_detail(
+    texts: Texts, item: MenuItem, warning_line: int, description_line: int
+) -> RenderableType:
+    """A descrição, a começar em `description_line`, e o aviso de administrador (se houver) em
+    `warning_line`, contadas a partir do título do menu."""
     if item.description_key is None:
         return Text("")
-    # As linhas em branco alinham a descrição com a primeira opção, por baixo do título
-    lines = [Text("") for _ in range(lead_lines)]
+    lines = [Text("") for _ in range(warning_line)]
     if item.admin is not None:
         lines.append(Text(texts[item.admin.value], style=WARNING))
-    lines.append(Text(texts[item.description_key], style=DETAIL_STYLE))
+    lines += [Text("") for _ in range(description_line - len(lines))]
+    description = texts[item.description_key].format(
+        cleanup_age=CLEANUP_MIN_AGE_HOURS, log_age=LOG_MIN_AGE_HOURS
+    )
+    lines.append(Text(description, style=DETAIL_STYLE))
     return Group(*lines)
 
 
@@ -101,7 +117,7 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
     table = Table(
         box=box.SIMPLE_HEAD, pad_edge=False, header_style=f"bold {ACCENT}", padding=(0, 2, 0, 0)
     )
-    table.add_column(texts["table.action"], no_wrap=True)
+    table.add_column(texts["table.action"], no_wrap=True, min_width=MENU_WIDTH)
     table.add_column(texts["table.gain"], justify="right", no_wrap=True)
     items = navigation.menu.items
     total = sum(
@@ -113,7 +129,7 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
         selected = position == navigation.index
         if item.runs_all:
             table.add_section()
-            style = f"bold reverse {ACCENT}" if selected else f"bold {ACCENT}"
+            style = f"bold white on {ACCENT}" if selected else f"bold {ACCENT}"
             title = Text(f" {RUN_ALL_MARK} {texts[item.label_key]}")
             table.add_row(title, format_estimate(total), style=style)
             continue
@@ -146,7 +162,14 @@ def _render_menu(texts: Texts, navigation: Navigation) -> RenderableType:
     layout = Table.grid(padding=(0, 0, 0, DETAIL_GAP))
     layout.add_column(no_wrap=True)
     layout.add_column(max_width=DETAIL_WIDTH)
-    detail = _render_detail(texts, navigation.item, 1 + header_lines)
+    first_option_line = 1 + header_lines
+    if header_lines:
+        # Com tabela, a descrição fica sempre na primeira linha e o aviso nos títulos das colunas
+        warning_line, description_line = _TABLE_WARNING_LINE, first_option_line
+    else:
+        warning_line = first_option_line
+        description_line = first_option_line + (2 if navigation.item.admin is not None else 0)
+    detail = _render_detail(texts, navigation.item, warning_line, description_line)
     layout.add_row(options, detail)
     return Padding(layout, _BODY_PADDING)
 
@@ -186,7 +209,8 @@ def _render_progress(texts: Texts, title: str, step: Step) -> RenderableType:
         complete_style=ACCENT,
         finished_style=ACCENT,
     )
-    bar.add_row(progress_bar, Text(f"{step.done * 100 // step.total}%" if step.total else ""))
+    percentage = Text(f"{step.done * 100 // step.total}%" if step.total else "")
+    bar.add_row(progress_bar, percentage, Spinner("dots", style=ACCENT))
     current = texts[step.text_key].format(**step.values)
     body = Group(
         Text(title, style=f"bold {ACCENT}"),
@@ -219,25 +243,39 @@ def _render_breakdown(texts: Texts, outcome: Outcome) -> RenderableType:
     return table
 
 
-def _render_outcome(texts: Texts, title: str, outcome: Outcome) -> RenderableType:
-    lines = [
-        Text(title, style=f"bold {ACCENT}"),
-        _render_breakdown(texts, outcome),
-    ]
+def _render_unfinished(texts: Texts, outcome: Outcome) -> RenderableType | None:
+    """O que ficou por limpar (sem administrador ou por falha), por grupo, ou None se nada ficou."""
+    lines: list[RenderableType] = []
     for label_key, places in (
         ("result.admin", outcome.admin_required),
         ("result.failures", outcome.failures),
     ):
-        if places:
-            lines += [Text(""), Text(texts[label_key], style=WARNING)]
-            lines += [
-                Text(f"  {place}", style=WARNING, no_wrap=True)
-                for place in places[:MAX_LISTED_PLACES]
-            ]
-            if len(places) > MAX_LISTED_PLACES:
-                more = texts["result.more"].format(count=len(places) - MAX_LISTED_PLACES)
-                lines.append(Text(more, style=WARNING))
-    return Padding(Group(*lines), _BODY_PADDING)
+        if not places:
+            continue
+        if lines:
+            lines.append(Text(""))
+        lines.append(Text(texts[label_key], style=WARNING))
+        lines += [
+            Text(f"  {place}", style=WARNING, no_wrap=True, overflow="ellipsis")
+            for place in places[:MAX_LISTED_PLACES]
+        ]
+        if len(places) > MAX_LISTED_PLACES:
+            more = texts["result.more"].format(count=len(places) - MAX_LISTED_PLACES)
+            lines.append(Text(more, style=WARNING))
+    return Group(*lines) if lines else None
+
+
+def _render_outcome(texts: Texts, title: str, outcome: Outcome) -> RenderableType:
+    body: RenderableType = _render_breakdown(texts, outcome)
+    unfinished = _render_unfinished(texts, outcome)
+    if unfinished is not None:
+        # A lista fica à direita da tabela, a começar ao nível dos títulos das colunas
+        layout = Table.grid(padding=(0, 0, 0, DETAIL_GAP))
+        layout.add_column(no_wrap=True)
+        layout.add_column(max_width=DETAIL_WIDTH)
+        layout.add_row(body, Group(Text(""), unfinished))
+        body = layout
+    return Padding(Group(Text(title, style=f"bold {ACCENT}"), body), _BODY_PADDING)
 
 
 def _render_confirmation(
@@ -272,7 +310,7 @@ def _frame(
 
 def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
     if navigation.notice is not None:
-        return _frame(texts, _render_notice(texts, navigation.notice))
+        return _frame(texts, _render_notice(texts, navigation.notice), NOTICE_HINTS)
     confirm_key = navigation.item.confirm_key
     if navigation.confirming and confirm_key is not None:
         return _frame(
@@ -297,7 +335,7 @@ def open_display(console: Console, texts: Texts, navigation: Navigation) -> Live
         render_screen(texts, navigation),
         console=console,
         screen=True,
-        auto_refresh=False,
+        refresh_per_second=PROGRESS_REFRESH_RATE,
     )
 
 
