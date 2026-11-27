@@ -27,7 +27,7 @@ class AdminNeed(Enum):
 # definição e o valor que a opção grava ao ser escolhida (volta ao menu anterior);
 # `runs_all`, a opção que corre todas as
 # ações do menu que o Modo seguro deixa correr; `state`, o estado atual, mostrado ao lado do
-# nome (ligado, desligado ou um texto). `label`, `description_values` e `cells` são para as
+# nome (ligado ou desligado). `label`, `description_values` e `cells` são para as
 # opções que se criam ao abrir o menu: o nome (em vez de `label_key`), os valores que completam o
 # texto da descrição e as colunas da tabela (um número é uma memória em bytes, um texto é a chave
 # de um texto traduzido, e None é «não se sabe»); `submenu_loader`, o que cria o submenu ao entrar
@@ -50,7 +50,7 @@ class MenuItem:
     runs_all: bool = False
     skips_slow: bool = False  # `runs_all` sem as ações lentas ou arriscadas
     slow: bool = False  # ação demorada, que a versão rápida de `runs_all` salta
-    state: Callable[[], bool | str | None] | None = None
+    state: Callable[[], bool] | None = None
     only_without_admin: bool = False  # só faz sentido sem administrador (fica esbatida com ele)
     label: str | None = None
     description_values: Mapping[str, str] = field(default_factory=dict)

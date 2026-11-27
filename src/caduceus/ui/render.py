@@ -126,16 +126,10 @@ def _column_width(title: str, width: int) -> int:
     return max(width, len(title) + _SORT_MARK_WIDTH)
 
 
-def _item_state(item: MenuItem, settings: Settings) -> bool | str | None:
+def _is_on(item: MenuItem, settings: Settings) -> bool | None:
     if item.setting is not None:
         return bool(getattr(settings, item.setting))
     return item.state() if item.state is not None else None
-
-
-def _state_text(texts: Texts, value: bool | str) -> tuple[str, str]:
-    if isinstance(value, str):
-        return texts.get(value, value), ACCENT
-    return texts["setting.on" if value else "setting.off"], ACCENT if value else DANGER
 
 
 def _render_option(
@@ -145,13 +139,13 @@ def _render_option(
     if not (blocked or is_selected) and item.choice is not None and not item.choice[1]:
         style = DANGER  # a escolha «desligado» (OFF) a vermelho
     option = Text(f" {item_label(texts, item)} ", style=style)
-    state = _item_state(item, settings)
-    if state is not None:
-        label, state_style = _state_text(texts, state)
-        option.append(label, style=state_style)
+    is_on = _is_on(item, settings)
+    if is_on is not None:
+        option.append(
+            texts["setting.on" if is_on else "setting.off"],
+            style=ACCENT if is_on else DANGER,
+        )
         option.append(" ")
-        if isinstance(state, str):
-            option.truncate(MENU_WIDTH, overflow="ellipsis")
     option.pad_right(max(0, MENU_WIDTH - option.cell_len))
     return option
 
@@ -260,11 +254,11 @@ def _visible_rows(count: int, index: int) -> range:
 
 
 def _state_cell(texts: Texts, item: MenuItem, settings: Settings, selected: bool) -> Text:
-    state = _item_state(item, settings)
-    if state is None:
-        return Text()
-    label, style = _state_text(texts, state)
-    return Text(label, style="" if selected else style)
+    is_on = _is_on(item, settings)
+    state = Text("" if is_on is None else texts["setting.on" if is_on else "setting.off"])
+    if not selected and is_on is not None:
+        state.stylize(ACCENT if is_on else DANGER)
+    return state
 
 
 def _add_cells_columns(table: Table, texts: Texts, navigation: Navigation) -> None:

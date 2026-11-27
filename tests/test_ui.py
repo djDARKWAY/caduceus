@@ -103,13 +103,23 @@ def screen_lines(navigation: Navigation, height: int = WINDOW_LINES) -> list[str
     return console.export_text().splitlines()
 
 
-def test_the_performance_menu_shows_the_active_plan_beside_power_plan(
+def test_the_active_plan_is_only_shown_inside_the_power_plan_submenu(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(power_plan, "_active_scheme", lambda: power_plan._BALANCED)
-    navigation = Navigation(menus=(PERFORMANCE_MENU,))
+    index = next(
+        i
+        for i, item in enumerate(PERFORMANCE_MENU.items)
+        if item.label_key == "performance.power_plan"
+    )
+    navigation = Navigation(menus=(PERFORMANCE_MENU,), selected=(index,))
 
-    assert any("Power plan Balanced" in line for line in screen_lines(navigation))
+    parent = next(line for line in screen_lines(navigation) if "Power plan" in line)
+    assert parent.lstrip().startswith("Power plan   ")
+
+    submenu = screen_lines(press(navigation, Key.ENTER))
+    assert any("Balanced ON" in line for line in submenu)
+    assert any("High performance OFF" in line for line in submenu)
 
 
 def test_the_drive_table_shows_media_type_size_and_free_space(

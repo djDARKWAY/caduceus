@@ -58,15 +58,6 @@ def _scheme_name(scheme: UUID) -> str | None:
     return name.value
 
 
-def active_plan_name() -> str | None:
-    active = _active_scheme()
-    if active == _BALANCED:
-        return "performance.power_plan.balanced"
-    if active in (_HIGH, _HIGH_COPY):
-        return "performance.power_plan.high"
-    return _scheme_name(active) if active is not None else None
-
-
 def balanced_is_active() -> bool:
     return _active_scheme() == _BALANCED
 

@@ -185,7 +185,7 @@
   "category.hibernation_file": "Hibernation file",
   "category.hibernation_on": "Hibernation turned on",
   "performance.power_plan": "Power plan",
-  "performance.power_plan.description": "Choose the power plan Windows uses. The active plan appears beside this option.\n• Balanced · adjusts performance as needed\n• High performance · favours speed at the cost of power use",
+  "performance.power_plan.description": "Choose the power plan Windows uses. The submenu shows which plan is active.\n• Balanced · adjusts performance as needed\n• High performance · favours speed at the cost of power use",
   "performance.power_plan.title": "POWER PLAN",
   "performance.power_plan.balanced": "Balanced",
   "performance.power_plan.balanced.description": "Switches Windows to Balanced.\n• Power use · reduces power use when the PC is less busy",

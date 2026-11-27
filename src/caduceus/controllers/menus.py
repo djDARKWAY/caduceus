@@ -52,7 +52,6 @@ from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, est
 from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
 from caduceus.maintenance.performance.free_standby import free_standby_memory
 from caduceus.maintenance.performance.power_plan import (
-    active_plan_name,
     balanced_is_active,
     high_performance_is_active,
     set_balanced,
@@ -252,7 +251,6 @@ PERFORMANCE_MENU = Menu(
         MenuItem(
             "performance.power_plan",
             POWER_PLAN_MENU,
-            state=active_plan_name,
             description_key="performance.power_plan.description",
         ),
         MenuItem(

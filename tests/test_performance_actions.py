@@ -63,7 +63,6 @@ def test_balanced_can_be_selected_in_basic_mode_and_the_active_plan_updates(
     monkeypatch.setattr(power_plan, "_active_scheme", lambda: active)
     parent = replace(performance_option("performance.power_plan"), administrator=False)
     submenu = press(parent, Key.ENTER)
-    assert parent.item.state is not None and parent.item.state() == "performance.power_plan.high"
     assert submenu.menu.title_key == "performance.power_plan.title"
     assert [item.state() for item in submenu.menu.items if item.state is not None] == [False, True]
 
@@ -71,7 +70,6 @@ def test_balanced_can_be_selected_in_basic_mode_and_the_active_plan_updates(
     assert running.running is not None
     assert not running.running(lambda _: None).failures
 
-    assert parent.item.state() == "performance.power_plan.balanced"
     assert [item.state() for item in submenu.menu.items if item.state is not None] == [True, False]
 
 

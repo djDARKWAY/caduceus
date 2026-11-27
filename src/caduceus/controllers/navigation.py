@@ -97,10 +97,7 @@ def _sort_value(navigation: Navigation, item: MenuItem, column: int) -> int | st
         return navigation.estimates.get(item.label_key)
     if has_state_column(menu):
         if column == 1:
-            state = item.state() if item.state is not None else False
-            if isinstance(state, str):
-                return navigation.texts.get(state, state).casefold()
-            return str(int(state)) if state is not None else None
+            return item.state() if item.state is not None else False
         column -= 1
     cell = item.cells[column - 1] if column - 1 < len(item.cells) else None
     if isinstance(cell, str):
