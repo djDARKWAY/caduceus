@@ -86,9 +86,9 @@ def _package_action(app: StoreApp, script: str, step_key: str, row_key: str) -> 
 
 def repair_store_app(app: StoreApp) -> Action:
     """A ação que volta a registar a aplicação, sem tocar nos dados dela."""
-    return _package_action(app, _REPAIR_SCRIPT, "store.repair.step", "category.repaired_app")
+    return _package_action(app, _REPAIR_SCRIPT, "apps.repair.step", "category.repaired_app")
 
 
 def reset_store_app(app: StoreApp) -> Action:
     """A ação que apaga os dados e as definições locais da aplicação, sem a desinstalar."""
-    return _package_action(app, _RESET_SCRIPT, "store.reset.step", "category.reset_app")
+    return _package_action(app, _RESET_SCRIPT, "apps.reset.step", "category.reset_app")

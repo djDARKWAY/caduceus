@@ -313,9 +313,9 @@ def test_a_program_with_a_missing_uninstaller_offers_to_clean_the_leftover_inste
 
     stale_machine, stale_user, healthy = programs_menu().items
 
-    assert stale_machine.confirm_key == "programs.stale.confirm"
+    assert stale_machine.confirm_key == "apps.uninstall.stale.confirm"
     assert stale_machine.admin is AdminNeed.ALL
     assert not stale_machine.risky
     assert stale_user.admin is None
     assert not stale_user.risky  # um runtime sem desinstalador não há o que proteger
-    assert healthy.confirm_key == "programs.confirm"
+    assert healthy.confirm_key == "apps.uninstall.confirm"

@@ -68,7 +68,7 @@ def empty_recycle_bin(report: Report) -> Outcome:
     failures: list[str] = []
     rows: list[Row] = []
     for done, drive in enumerate(drives):
-        report(Step("recycle_bin.step", done, len(drives), {"drive": drive}))
+        report(Step("cleanup.recycle_bin.step", done, len(drives), {"drive": drive}))
         try:
             drive_items, drive_bytes = _query(drive)
             if drive_items:

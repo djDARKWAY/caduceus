@@ -22,7 +22,7 @@ def clean_restore_points(report: Report) -> Outcome:
             "vssadmin.exe",
             ["delete", "shadows", f"/for={drive}", "/all", "/quiet"],
             report,
-            "restore_points.step",
+            "cleanup.restore_points.step",
         )
     except OSError:
         succeeded = False

@@ -55,7 +55,7 @@ def _run_cleanmgr(report: Report) -> bool:
         winreg.SetValueEx(key, flags, 0, winreg.REG_DWORD, _FLAG_RUN_HANDLER)
         try:
             return run_system_tool(
-                "cleanmgr.exe", [f"/sagerun:{profile}"], report, "windows_old.step"
+                "cleanmgr.exe", [f"/sagerun:{profile}"], report, "cleanup.windows_old.step"
             )
         finally:
             winreg.DeleteValue(key, flags)

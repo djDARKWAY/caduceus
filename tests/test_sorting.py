@@ -6,14 +6,14 @@ from caduceus.controllers.navigation import Navigation, column_count, complete, 
 from caduceus.maintenance.actions import Outcome, Report
 
 MAINTENANCE = 1
-SIZE_COLUMNS = (("programs.column.size", 9),)
+SIZE_COLUMNS = (("apps.uninstall.column.size", 9),)
 
 
 def table(*rows: tuple[str, int | None]) -> Navigation:
     """Uma tabela com duas colunas, o nome e o tamanho (como a dos programas instalados)."""
     items = tuple(MenuItem(f"program:{name}", label=name, cells=(size,)) for name, size in rows)
     return Navigation(
-        menus=(MAIN_MENU, Menu("programs.title", items, SIZE_COLUMNS)), selected=(0, 0)
+        menus=(MAIN_MENU, Menu("apps.uninstall.title", items, SIZE_COLUMNS)), selected=(0, 0)
     )
 
 
@@ -86,9 +86,12 @@ def test_the_state_column_sorts_off_before_on_and_the_text_columns_by_what_is_sh
     def option(name: str, enabled: bool, trigger: str) -> MenuItem:
         return MenuItem(f"task:{name}", label=name, state=lambda: enabled, cells=(trigger,))
 
-    items = (option("A", False, "tasks.boot"), option("B", True, "tasks.logon"))
-    menu = Menu("tasks.title", items, (("tasks.column.trigger", 7),))
-    texts = {"tasks.boot": "Startup", "tasks.logon": "Logon"}
+    items = (
+        option("A", False, "performance.tasks.boot"),
+        option("B", True, "performance.tasks.logon"),
+    )
+    menu = Menu("performance.tasks.title", items, (("performance.tasks.column.trigger", 7),))
+    texts = {"performance.tasks.boot": "Startup", "performance.tasks.logon": "Logon"}
     navigation = Navigation(menus=(MAIN_MENU, menu), selected=(0, 0), texts=texts)
 
     assert column_count(menu) == 3
@@ -131,7 +134,7 @@ def test_after_an_uninstall_the_list_keeps_its_sort_and_the_cursor_its_place_in_
 
     def loader() -> Menu:
         items = tuple(program(name, size) for name, size in installed.items())
-        return Menu("programs.title", items, SIZE_COLUMNS)
+        return Menu("apps.uninstall.title", items, SIZE_COLUMNS)
 
     parent = Menu("maintenance.title", (MenuItem("apps.uninstall", submenu_loader=loader),))
     opened = press(Navigation(menus=(MAIN_MENU, parent), selected=(0, 0)), Key.ENTER)

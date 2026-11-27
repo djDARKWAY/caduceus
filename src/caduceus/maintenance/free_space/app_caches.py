@@ -80,7 +80,7 @@ LOCATIONS = (
 def _close_running_apps(report: Report) -> None:
     command = ["/F", "/T"] + [argument for name in _APP_PROCESSES for argument in ("/IM", name)]
     try:
-        closed_any = run_system_tool("taskkill.exe", command, report, "closing_apps.step")
+        closed_any = run_system_tool("taskkill.exe", command, report, "cleanup.closing_apps.step")
     except OSError:
         return  # sem o taskkill, limpa-se na mesma o que não estiver em uso
     if closed_any:

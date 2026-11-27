@@ -43,7 +43,7 @@ def _clean_component_store(report: Report) -> Outcome:
             "dism.exe",
             ["/Online", "/Cleanup-Image", "/StartComponentCleanup"],
             report,
-            "components.step",
+            "cleanup.components.step",
             _SUCCESS_CODES,
             reports_percent=True,
         )

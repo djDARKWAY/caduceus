@@ -418,7 +418,9 @@ def test_with_administrator_everything_can_be_selected() -> None:
 
 def instant_menu(outcome: Outcome) -> Navigation:
     item = MenuItem("startup:test", label="Example", action=lambda _report: outcome, instant=True)
-    return Navigation(menus=(MAIN_MENU, Menu("startup.title", (item,))), selected=(0, 0))
+    return Navigation(
+        menus=(MAIN_MENU, Menu("performance.startup.title", (item,))), selected=(0, 0)
+    )
 
 
 def test_an_instant_action_that_works_goes_straight_back_to_the_list() -> None:
@@ -444,7 +446,7 @@ def test_a_menu_created_when_it_is_opened_is_loaded_on_every_entry() -> None:
 
     def loader() -> Menu:
         loaded.append("loaded")
-        return Menu("startup.title", (MenuItem("startup.none"),))
+        return Menu("performance.startup.title", (MenuItem("performance.startup.none"),))
 
     parent = Menu("performance.title", (MenuItem("performance.startup", submenu_loader=loader),))
     navigation = Navigation(menus=(MAIN_MENU, parent), selected=(0, 0))
@@ -452,8 +454,8 @@ def test_a_menu_created_when_it_is_opened_is_loaded_on_every_entry() -> None:
     opened = press(navigation, Key.ENTER)
     reopened = press(press(opened, Key.BACK), Key.ENTER)
 
-    assert opened.menu.title_key == "startup.title"
-    assert reopened.menu.title_key == "startup.title"
+    assert opened.menu.title_key == "performance.startup.title"
+    assert reopened.menu.title_key == "performance.startup.title"
     assert loaded == ["loaded", "loaded"]
 
 
@@ -467,7 +469,7 @@ def list_menu(*risky: bool) -> Navigation:
         )
 
     items = tuple(option(index, is_risky) for index, is_risky in enumerate(risky))
-    startup = MenuItem("performance.startup", submenu=Menu("startup.title", items))
+    startup = MenuItem("performance.startup", submenu=Menu("performance.startup.title", items))
     parent = Menu("performance.title", (startup,))
     settings = Settings(safe_mode=True)
     return Navigation(menus=(MAIN_MENU, parent), selected=(0, 0), settings=settings)
@@ -538,7 +540,7 @@ def test_after_an_uninstall_the_list_is_created_again_without_the_program() -> N
         return MenuItem(f"program:{name}", label=name, action=uninstall, refreshes_menu=True)
 
     def loader() -> Menu:
-        return Menu("programs.title", tuple(program(name) for name in installed))
+        return Menu("apps.uninstall.title", tuple(program(name) for name in installed))
 
     parent = Menu("apps.title", (MenuItem("apps.programs", submenu_loader=loader),))
     start = Navigation(menus=(MAIN_MENU, parent), selected=(0, 0))

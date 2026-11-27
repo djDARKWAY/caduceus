@@ -124,7 +124,7 @@ def test_restart_as_administrator_is_shown_only_without_administrator() -> None:
 
 def test_a_text_cell_without_a_translation_is_shown_as_it_is() -> None:
     items = (MenuItem("store.item", label="Some App", cells=("0.20.65.0",)),)
-    table = Menu("store.repair.title", items, (("store.column.version", 14),))
+    table = Menu("apps.repair.title", items, (("apps.store.column.version", 14),))
 
     lines = screen_lines(Navigation(menus=(MAIN_MENU, table), selected=(0, 0)))
 

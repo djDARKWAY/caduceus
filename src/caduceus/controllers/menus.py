@@ -260,14 +260,14 @@ CLEANUP_MENU = Menu(
 )
 
 _SOURCE_DESCRIPTIONS = {
-    StartupSource.RUN_USER: "startup.source.run_user",
-    StartupSource.RUN_MACHINE: "startup.source.run_machine",
-    StartupSource.RUN_MACHINE_32: "startup.source.run_machine",
-    StartupSource.FOLDER_USER: "startup.source.folder_user",
-    StartupSource.FOLDER_MACHINE: "startup.source.folder_machine",
-    StartupSource.SERVICE: "startup.source.service",
+    StartupSource.RUN_USER: "performance.startup.source.run_user",
+    StartupSource.RUN_MACHINE: "performance.startup.source.run_machine",
+    StartupSource.RUN_MACHINE_32: "performance.startup.source.run_machine",
+    StartupSource.FOLDER_USER: "performance.startup.source.folder_user",
+    StartupSource.FOLDER_MACHINE: "performance.startup.source.folder_machine",
+    StartupSource.SERVICE: "performance.startup.source.service",
 }
-_UPDATER_DESCRIPTION = "startup.source.service_updater"
+_UPDATER_DESCRIPTION = "performance.startup.source.service_updater"
 
 
 def _description_key(entry: StartupEntry) -> str:
@@ -279,7 +279,7 @@ def _description_key(entry: StartupEntry) -> str:
 def _startup_item(entry: StartupEntry) -> MenuItem:
     impact = impact_of(entry.memory_bytes)
     is_service = entry.source is StartupSource.SERVICE
-    kind = "startup.type.service" if is_service else "startup.type.program"
+    kind = "performance.startup.type.service" if is_service else "performance.startup.type.program"
     return MenuItem(
         f"startup:{entry.source.value}:{entry.name}",
         label=entry.label,
@@ -289,7 +289,7 @@ def _startup_item(entry: StartupEntry) -> MenuItem:
         description_values={"command": entry.command or "-", "name": entry.name},
         admin=AdminNeed.ALL if entry.needs_admin else None,
         risky=entry.needs_safe_mode_off,
-        cells=(entry.memory_bytes, f"impact.{impact}" if impact else None, kind),
+        cells=(entry.memory_bytes, f"performance.impact.{impact}" if impact else None, kind),
         instant=True,
     )
 
@@ -298,18 +298,27 @@ def startup_menu() -> Menu:
     """O menu dos programas de arranque, criado a partir do que o Windows tem registado agora."""
     items = tuple(_startup_item(entry) for entry in list_startup_entries())
     return Menu(
-        "startup.title",
-        items or (MenuItem("startup.none", description_key="startup.none.description"),),
-        (("startup.column.memory", 9), ("startup.column.impact", 6), ("startup.column.type", 7)),
+        "performance.startup.title",
+        items
+        or (
+            MenuItem(
+                "performance.startup.none", description_key="performance.startup.none.description"
+            ),
+        ),
+        (
+            ("performance.startup.column.memory", 9),
+            ("performance.startup.column.impact", 6),
+            ("performance.startup.column.type", 7),
+        ),
     )
 
 
 def _task_item(entry: TaskEntry) -> MenuItem:
     impact = impact_of(entry.memory_bytes)
     description_key = (
-        "tasks.item.protected.description"
+        "performance.tasks.item.protected.description"
         if entry.needs_safe_mode_off
-        else "tasks.item.description"
+        else "performance.tasks.item.description"
     )
     return MenuItem(
         f"task:{entry.full_name}",
@@ -322,8 +331,8 @@ def _task_item(entry: TaskEntry) -> MenuItem:
         risky=entry.needs_safe_mode_off,
         cells=(
             entry.memory_bytes,
-            f"impact.{impact}" if impact else None,
-            f"tasks.{entry.trigger}",
+            f"performance.impact.{impact}" if impact else None,
+            f"performance.tasks.{entry.trigger}",
         ),
         instant=True,
     )
@@ -333,9 +342,18 @@ def tasks_menu() -> Menu:
     """O menu das tarefas agendadas de arranque, criado a partir do que o Windows tem agora."""
     items = tuple(_task_item(entry) for entry in list_scheduled_tasks())
     return Menu(
-        "tasks.title",
-        items or (MenuItem("tasks.none", description_key="tasks.none.description"),),
-        (("startup.column.memory", 9), ("startup.column.impact", 6), ("tasks.column.trigger", 7)),
+        "performance.tasks.title",
+        items
+        or (
+            MenuItem(
+                "performance.tasks.none", description_key="performance.tasks.none.description"
+            ),
+        ),
+        (
+            ("performance.startup.column.memory", 9),
+            ("performance.startup.column.impact", 6),
+            ("performance.tasks.column.trigger", 7),
+        ),
     )
 
 
@@ -361,15 +379,15 @@ def _program_item(program: InstalledProgram) -> MenuItem:
     """Um programa da lista. Se o desinstalador já não existe, escolher o programa limpa o resto
     que ficou no registo (e não abre nada); essa limpeza não põe o sistema em risco."""
     if program.has_missing_uninstaller:
-        action, confirm_key = remove_leftover_entry(program), "programs.stale.confirm"
-        description_key, risky = "programs.item.stale.description", False
+        action, confirm_key = remove_leftover_entry(program), "apps.uninstall.stale.confirm"
+        description_key, risky = "apps.uninstall.item.stale.description", False
         admin = AdminNeed.ALL if program.entry_needs_admin else None
     else:
-        action, confirm_key = uninstall_program(program), "programs.confirm"
+        action, confirm_key = uninstall_program(program), "apps.uninstall.confirm"
         description_key = (
-            "programs.item.protected.description"
+            "apps.uninstall.item.protected.description"
             if program.needs_safe_mode_off
-            else "programs.item.description"
+            else "apps.uninstall.item.description"
         )
         risky, admin = program.needs_safe_mode_off, None
     return MenuItem(
@@ -397,9 +415,10 @@ def programs_menu() -> Menu:
     """O menu dos programas instalados, criado a partir do que o Windows tem registado agora."""
     items = tuple(_program_item(program) for program in list_installed_programs())
     return Menu(
-        "programs.title",
-        items or (MenuItem("programs.none", description_key="programs.none.description"),),
-        (("programs.column.size", 9),),
+        "apps.uninstall.title",
+        items
+        or (MenuItem("apps.uninstall.none", description_key="apps.uninstall.none.description"),),
+        (("apps.uninstall.column.size", 9),),
     )
 
 
@@ -448,10 +467,10 @@ def _store_app_item(app: StoreApp, action: Action, kind: str, risky: bool = Fals
         f"store_{kind}:{app.full_name}",
         label=app.name,
         action=action,
-        description_key=f"store.{kind}.item.description",
+        description_key=f"apps.{kind}.item.description",
         description_values={"name": app.full_name, "version": app.version or "-"},
         risky=risky,
-        confirm_key="store.reset.confirm" if risky else None,
+        confirm_key="apps.reset.confirm" if risky else None,
         cells=(app.version or None,),
     )
 
@@ -464,9 +483,9 @@ def _store_menu(kind: str) -> Menu:
     else:
         items = tuple(_store_app_item(app, reset_store_app(app), kind, risky=True) for app in apps)
     return Menu(
-        f"store.{kind}.title",
-        items or (MenuItem("store.none", description_key="store.none.description"),),
-        (("store.column.version", 14),),
+        f"apps.{kind}.title",
+        items or (MenuItem("apps.store.none", description_key="apps.store.none.description"),),
+        (("apps.store.column.version", 14),),
     )
 
 

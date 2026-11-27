@@ -98,7 +98,7 @@ def _export(key: str, file: Path, report: Report) -> bool:
     try:
         file.parent.mkdir(parents=True, exist_ok=True)
         return run_system_tool(
-            "reg.exe", ["export", key, str(file), "/y"], report, "open_with.step"
+            "reg.exe", ["export", key, str(file), "/y"], report, "apps.open_with.step"
         )
     except OSError:
         return False
@@ -119,7 +119,7 @@ def clean_open_with(report: Report) -> Outcome:
     for name in orphans:
         key = rf"HKCU\{_APPLICATIONS_KEY}\{name}"
         done = _export(key, _backup_file(name), report) and run_system_tool(
-            "reg.exe", ["delete", key, "/f"], report, "open_with.step"
+            "reg.exe", ["delete", key, "/f"], report, "apps.open_with.step"
         )
         (removed if done else failures).append(name)
     rows = (Row("category.open_with_entries", len(removed), 0),) if removed else ()

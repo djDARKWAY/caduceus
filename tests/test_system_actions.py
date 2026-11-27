@@ -169,8 +169,10 @@ def test_a_running_tool_reports_progress_under_the_step_it_was_given(
     monkeypatch.setattr(time, "sleep", lambda _seconds: None)
     steps: list[Step] = []
 
-    assert run_system_tool("dism.exe", [], steps.append, "components.step", reports_percent=True)
-    assert all(step.text_key == "components.step" for step in steps)
+    assert run_system_tool(
+        "dism.exe", [], steps.append, "cleanup.components.step", reports_percent=True
+    )
+    assert all(step.text_key == "cleanup.components.step" for step in steps)
     assert (42, 100) in [(step.done, step.total) for step in steps]
     assert (0, 0) in [(step.done, step.total) for step in steps]  # a barra anima-se até ao fim
 

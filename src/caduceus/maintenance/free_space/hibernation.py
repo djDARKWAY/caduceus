@@ -36,7 +36,7 @@ def _switch(report: Report, turn_on: bool) -> Outcome:
             "powercfg.exe",
             ["/hibernate", "on" if turn_on else "off"],
             report,
-            "hibernation.step",
+            "cleanup.hibernation.step",
         )
     except OSError:
         succeeded = False

@@ -246,7 +246,7 @@ def clean_locations(locations: Sequence[Location], report: Report) -> Outcome:
             work += [(entry, cutoff, location.label_key) for entry in entries]
 
     for done, (entry, cutoff, label_key) in enumerate(work):
-        report(Step("cleaning.step", done, len(work), {"path": str(entry)}))
+        report(Step("cleanup.cleaning.step", done, len(work), {"path": str(entry)}))
         totals[label_key] += _remove(entry, cutoff)
     return _outcome(totals, admin_categories, tuple(failures), tuple(admin_required))
 
