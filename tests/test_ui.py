@@ -1,6 +1,6 @@
 import pytest
 
-from caduceus.ui.render import format_size
+from caduceus.ui.render import format_estimate, format_size
 
 
 @pytest.mark.parametrize(
@@ -16,3 +16,13 @@ from caduceus.ui.render import format_size
 )
 def test_sizes_are_shown_in_the_largest_fitting_unit(size: int, expected: str) -> None:
     assert format_size(size) == expected
+
+
+@pytest.mark.parametrize(
+    ("estimate", "expected"),
+    [(None, "—"), (0, "0 B"), (1536, "~1.5 KB"), (2 * 1024**3, "~2.0 GB")],
+)
+def test_the_estimated_gain_is_shown_as_approximate_or_unknown(
+    estimate: int | None, expected: str
+) -> None:
+    assert format_estimate(estimate) == expected

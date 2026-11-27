@@ -1,27 +1,43 @@
 """
 Navegação
 
-Lógica pura da navegação nos menus: dado o estado e uma tecla, devolve o novo estado. Com o
-resultado de uma ação no ecrã, só o ENTER faz alguma coisa (volta ao menu). Não lê
-teclas, não desenha e não corre ações: quando uma opção tem ação, o estado fica com `running` e
-é a aplicação que a corre e depois chama `complete`.
+Lógica pura da navegação nos menus: dado o estado e uma tecla, devolve o novo estado. Um menu com
+estimativas (o da limpeza) calcula-as ao abrir e, depois de cada ação, só a dessa ação. Uma opção
+bloqueada pelo Modo seguro não se pode selecionar: o cursor salta-a. Com o resultado de uma ação
+no ecrã, só o ENTER faz alguma coisa (volta ao menu); com um pedido de confirmação, só o ENTER
+(confirma) e o BACKSPACE (cancela). Não lê teclas, não desenha e não corre ações: quando uma opção
+tem ação, o estado fica com `running` e é a aplicação que a corre e depois chama `complete`.
 """
 
-from dataclasses import dataclass, replace
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import MAIN_MENU, Menu, MenuItem
 from caduceus.maintenance.actions import Action, Outcome
+from caduceus.maintenance.run_all import run_all
+from caduceus.settings import Settings
+
+NOT_AVAILABLE_NOTICE = "notice.not_available"
+SETTINGS_NOT_SAVED_NOTICE = "notice.settings_not_saved"
 
 
 @dataclass(frozen=True)
 class Navigation:
     menus: tuple[Menu, ...] = (MAIN_MENU,)
     selected: tuple[int, ...] = (0,)
-    notice: bool = False
+    notice: str | None = None  # chave do texto do aviso no ecrã, se houver
+    confirming: bool = False
+    to_estimate: tuple[str, ...] = ()  # chaves das opções cuja estimativa falta calcular
+    estimates: Mapping[str, int | None] = field(default_factory=dict)
+    settings: Settings = field(default_factory=Settings)
     running: Action | None = None
     outcome: Outcome | None = None
     finished: bool = False
+
+    @property
+    def estimating(self) -> bool:
+        return bool(self.to_estimate)
 
     @property
     def menu(self) -> Menu:
@@ -36,24 +52,63 @@ class Navigation:
         return self.menu.items[self.index]
 
 
+def _estimable(menu: Menu) -> tuple[str, ...]:
+    return tuple(item.label_key for item in menu.items if item.estimate is not None)
+
+
+def is_blocked(navigation: Navigation, item: MenuItem) -> bool:
+    return item.risky and navigation.settings.safe_mode
+
+
+def _action_for(navigation: Navigation, item: MenuItem) -> Action | None:
+    """A ação da opção; a que corre tudo junta as do menu que o Modo seguro deixa correr."""
+    if not item.runs_all:
+        return item.action
+    return run_all(
+        [
+            (other.label_key, other.admin is not None, other.action)
+            for other in navigation.menu.items
+            if other.action is not None and not is_blocked(navigation, other)
+        ]
+    )
+
+
 def _move(navigation: Navigation, step: int) -> Navigation:
-    index = (navigation.index + step) % len(navigation.menu.items)
-    return replace(navigation, selected=(*navigation.selected[:-1], index))
+    """Passa à opção seguinte (ou anterior) que não esteja bloqueada: essas nunca se selecionam."""
+    items = navigation.menu.items
+    index = navigation.index
+    for _ in items:
+        index = (index + step) % len(items)
+        if not is_blocked(navigation, items[index]):
+            return replace(navigation, selected=(*navigation.selected[:-1], index))
+    return navigation
 
 
 def _enter(navigation: Navigation) -> Navigation:
     item = navigation.item
     if item.quits:
         return replace(navigation, finished=True)
-    if item.action is not None:
-        return replace(navigation, running=item.action)
+    if item.setting is not None:
+        return replace(navigation, settings=navigation.settings.toggled(item.setting))
+    if is_blocked(navigation, item):
+        return navigation
+    if item.action is not None or item.runs_all:
+        if item.confirm_key is not None:
+            return replace(navigation, confirming=True)
+        return replace(navigation, running=_action_for(navigation, item))
     if item.submenu is not None:
+        first = next(
+            (i for i, other in enumerate(item.submenu.items) if not is_blocked(navigation, other)),
+            0,
+        )
         return replace(
             navigation,
             menus=(*navigation.menus, item.submenu),
-            selected=(*navigation.selected, 0),
+            selected=(*navigation.selected, first),
+            to_estimate=_estimable(item.submenu),
+            estimates={},
         )
-    return replace(navigation, notice=True)
+    return replace(navigation, notice=NOT_AVAILABLE_NOTICE)
 
 
 def _back(navigation: Navigation) -> Navigation:
@@ -62,13 +117,32 @@ def _back(navigation: Navigation) -> Navigation:
     return replace(navigation, menus=navigation.menus[:-1], selected=navigation.selected[:-1])
 
 
+def _answer_confirmation(navigation: Navigation, key: Key) -> Navigation:
+    if key is Key.ENTER:
+        action = _action_for(navigation, navigation.item)
+        return replace(navigation, confirming=False, running=action)
+    if key is Key.BACK:
+        return replace(navigation, confirming=False)
+    return navigation
+
+
 def press(navigation: Navigation, key: Key) -> Navigation:
+    if navigation.estimating:
+        return navigation
     if navigation.outcome is not None:
-        return replace(navigation, outcome=None) if key is Key.ENTER else navigation
+        if key is not Key.ENTER:
+            return navigation
+        # Só se volta a estimar o que acabou de ser limpo: o resto da tabela mantém-se
+        item = navigation.item
+        again = _estimable(navigation.menu) if item.runs_all else (item.label_key,)
+        again = tuple(key for key in again if key in _estimable(navigation.menu))
+        return replace(navigation, outcome=None, to_estimate=again)
+    if navigation.confirming:
+        return _answer_confirmation(navigation, key)
     if key is Key.QUIT:
         return replace(navigation, finished=True)
-    if navigation.notice:
-        return replace(navigation, notice=False)
+    if navigation.notice is not None:
+        return replace(navigation, notice=None)
     if key is Key.UP:
         return _move(navigation, -1)
     if key is Key.DOWN:
@@ -78,6 +152,10 @@ def press(navigation: Navigation, key: Key) -> Navigation:
     if key is Key.BACK:
         return _back(navigation)
     return navigation
+
+
+def finish_estimates(navigation: Navigation, estimates: Mapping[str, int | None]) -> Navigation:
+    return replace(navigation, to_estimate=(), estimates={**navigation.estimates, **estimates})
 
 
 def complete(navigation: Navigation, outcome: Outcome) -> Navigation:

@@ -1,23 +1,36 @@
+from dataclasses import replace
+
 import pytest
 
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, MAINTENANCE_MENU
-from caduceus.controllers.navigation import Navigation, complete, press
+from caduceus.controllers.navigation import (
+    Navigation,
+    complete,
+    finish_estimates,
+    press,
+)
 from caduceus.maintenance.actions import Outcome
 from caduceus.maintenance.recycle_bin import empty_recycle_bin
+from caduceus.maintenance.temp_files import clean_temp_files
+from caduceus.maintenance.windows_old import clean_windows_old
+from caduceus.settings import Settings
 
 SCAN, MAINTENANCE, _SETTINGS, EXIT = range(4)
 
 
-def press_all(*keys: Key) -> Navigation:
-    navigation = Navigation()
+def press_all(*keys: Key, safe_mode: bool = False) -> Navigation:
+    """Carrega as teclas, dando por calculadas as estimativas que o menu da limpeza pede."""
+    navigation = Navigation(settings=Settings(safe_mode=safe_mode))
     for key in keys:
         navigation = press(navigation, key)
+        if navigation.estimating:
+            navigation = finish_estimates(navigation, {})
     return navigation
 
 
-def open_recycle_bin_action() -> Navigation:
-    return press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER, Key.DOWN, Key.ENTER)
+def open_temp_files_action() -> Navigation:
+    return press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER, Key.ENTER)
 
 
 def test_down_on_the_last_option_goes_to_the_first() -> None:
@@ -46,24 +59,24 @@ def test_backspace_returns_to_the_previous_menu_with_its_selection() -> None:
 
 
 def test_backspace_on_the_main_menu_changes_nothing() -> None:
-    assert press_all(Key.BACK) == Navigation()
+    assert press_all(Key.BACK) == press_all()
 
 
 def test_option_without_a_screen_shows_a_notice_that_any_key_closes() -> None:
     navigation = press_all(Key.ENTER)
     assert navigation.notice
-    assert not press(navigation, Key.OTHER).notice
+    assert press(navigation, Key.OTHER).notice is None
     assert press(navigation, Key.OTHER).menu is MAIN_MENU
 
 
 def test_enter_on_an_action_starts_it_straight_away() -> None:
-    assert open_recycle_bin_action().running is empty_recycle_bin
+    assert open_temp_files_action().running is clean_temp_files
 
 
 def test_a_finished_action_shows_its_outcome_until_enter_is_pressed() -> None:
     outcome = Outcome(items=2, bytes_freed=100)
 
-    navigation = complete(open_recycle_bin_action(), outcome)
+    navigation = complete(open_temp_files_action(), outcome)
     assert navigation.running is None
     assert navigation.outcome is outcome
 
@@ -82,11 +95,176 @@ def test_q_finishes_from_any_menu() -> None:
 
 
 def test_other_keys_change_nothing() -> None:
-    assert press_all(Key.OTHER) == Navigation()
+    assert press_all(Key.OTHER) == press_all()
 
 
 @pytest.mark.parametrize("key", [Key.UP, Key.DOWN, Key.BACK, Key.QUIT, Key.OTHER])
 def test_only_enter_leaves_the_outcome_screen(key: Key) -> None:
-    navigation = complete(open_recycle_bin_action(), Outcome(items=2, bytes_freed=100))
+    navigation = complete(open_temp_files_action(), Outcome(items=2, bytes_freed=100))
 
     assert press(navigation, key) == navigation
+
+
+def open_windows_old_confirmation() -> Navigation:
+    return press_all(*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER, *[Key.DOWN] * 5, Key.ENTER)
+
+
+def test_an_action_with_a_warning_asks_for_confirmation_before_running() -> None:
+    navigation = open_windows_old_confirmation()
+
+    assert navigation.confirming
+    assert navigation.running is None
+
+
+def test_enter_confirms_and_runs_the_action() -> None:
+    navigation = press(open_windows_old_confirmation(), Key.ENTER)
+
+    assert not navigation.confirming
+    assert navigation.running is clean_windows_old
+
+
+def test_backspace_cancels_the_confirmation_without_running_anything() -> None:
+    navigation = press(open_windows_old_confirmation(), Key.BACK)
+
+    assert not navigation.confirming
+    assert navigation.running is None
+    assert navigation.menu is CLEANUP_MENU
+
+
+@pytest.mark.parametrize("key", [Key.UP, Key.DOWN, Key.QUIT, Key.OTHER])
+def test_only_enter_and_backspace_answer_the_confirmation(key: Key) -> None:
+    navigation = open_windows_old_confirmation()
+
+    assert press(navigation, key) == navigation
+
+
+CLEANUP_PATH = (*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER)
+SETTINGS_PATH = (*[Key.DOWN] * _SETTINGS, Key.ENTER)
+
+
+def test_safe_mode_is_on_by_default() -> None:
+    assert Navigation().settings.safe_mode
+
+
+WINDOWS_OLD_OPTION = 5
+
+
+def test_with_safe_mode_on_the_cursor_skips_windows_old_in_both_directions() -> None:
+    first = press_all(*CLEANUP_PATH, safe_mode=True)
+    visited_down = [first.index]
+    navigation = first
+    for _ in range(len(CLEANUP_MENU.items) - 1):
+        navigation = press(navigation, Key.DOWN)
+        visited_down.append(navigation.index)
+    visited_up = [first.index]
+    navigation = first
+    for _ in range(len(CLEANUP_MENU.items) - 1):
+        navigation = press(navigation, Key.UP)
+        visited_up.append(navigation.index)
+
+    assert WINDOWS_OLD_OPTION not in visited_down + visited_up
+    assert len(set(visited_down)) == len(CLEANUP_MENU.items) - 1
+
+
+def test_with_safe_mode_off_the_cursor_reaches_windows_old() -> None:
+    navigation = press_all(*CLEANUP_PATH, *[Key.DOWN] * WINDOWS_OLD_OPTION)
+
+    assert navigation.index == WINDOWS_OLD_OPTION
+
+
+def test_a_blocked_option_does_nothing_even_if_the_state_points_at_it() -> None:
+    at_windows_old = replace(
+        press_all(*CLEANUP_PATH, safe_mode=True), selected=(1, 0, WINDOWS_OLD_OPTION)
+    )
+
+    assert press(at_windows_old, Key.ENTER) == at_windows_old
+
+
+def test_safe_mode_does_not_block_the_harmless_actions() -> None:
+    navigation = press_all(*CLEANUP_PATH, Key.ENTER, safe_mode=True)
+
+    assert navigation.running is not None
+
+
+def test_the_recycle_bin_asks_for_confirmation_and_safe_mode_does_not_block_it() -> None:
+    asked = press_all(*CLEANUP_PATH, Key.DOWN, Key.ENTER, safe_mode=True)
+
+    assert asked.confirming
+    assert asked.running is None
+    assert press(asked, Key.ENTER).running is empty_recycle_bin
+    assert press(asked, Key.BACK).running is None
+
+
+def test_with_safe_mode_off_windows_old_asks_for_confirmation() -> None:
+    navigation = press_all(*CLEANUP_PATH, *[Key.DOWN] * 5, Key.ENTER, safe_mode=False)
+
+    assert navigation.confirming
+
+
+def test_enter_on_the_safe_mode_setting_toggles_it() -> None:
+    opened = press_all(*SETTINGS_PATH, safe_mode=True)
+    off = press(opened, Key.ENTER)
+    on_again = press(off, Key.ENTER)
+
+    assert not off.settings.safe_mode
+    assert on_again.settings.safe_mode
+
+
+def test_opening_the_cleanup_menu_asks_for_the_estimates_and_ignores_keys_meanwhile() -> None:
+    navigation = Navigation()
+    for key in (*[Key.DOWN] * MAINTENANCE, Key.ENTER, Key.ENTER):
+        navigation = press(navigation, key)
+
+    assert navigation.estimating
+    assert press(navigation, Key.BACK) == navigation
+
+    estimated = finish_estimates(navigation, {"cleanup.caches": 5})
+    assert not estimated.estimating
+    assert estimated.estimates == {"cleanup.caches": 5}
+
+
+def test_finishing_a_new_estimate_keeps_the_others() -> None:
+    navigation = finish_estimates(press_all(*CLEANUP_PATH), {"cleanup.caches": 5, "cleanup.x": 7})
+
+    updated = finish_estimates(navigation, {"cleanup.caches": 0})
+
+    assert updated.estimates == {"cleanup.caches": 0, "cleanup.x": 7}
+
+
+def test_after_an_action_only_its_own_estimate_is_calculated_again() -> None:
+    finished = complete(open_temp_files_action(), Outcome(items=2, bytes_freed=100))
+
+    assert press(finished, Key.ENTER).to_estimate == ("cleanup.temp_files",)
+
+
+def open_run_all(safe_mode: bool) -> Navigation:
+    return press_all(*CLEANUP_PATH, Key.UP, Key.ENTER, safe_mode=safe_mode)
+
+
+@pytest.mark.parametrize("safe_mode", [True, False])
+def test_running_all_cleanups_always_asks_for_confirmation(safe_mode: bool) -> None:
+    navigation = open_run_all(safe_mode)
+
+    assert navigation.confirming
+    assert navigation.running is None
+
+
+@pytest.mark.parametrize("safe_mode", [True, False])
+def test_cancelling_the_confirmation_of_run_all_runs_nothing(safe_mode: bool) -> None:
+    navigation = press(open_run_all(safe_mode), Key.BACK)
+
+    assert not navigation.confirming
+    assert navigation.running is None
+
+
+def test_confirming_run_all_starts_one_combined_action() -> None:
+    navigation = press(open_run_all(safe_mode=False), Key.ENTER)
+
+    assert navigation.running is not None
+    assert not navigation.confirming
+
+
+def test_after_run_all_every_estimate_is_calculated_again() -> None:
+    finished = complete(open_run_all(safe_mode=False), Outcome(items=0, bytes_freed=0))
+
+    assert len(press(finished, Key.ENTER).to_estimate) == 5

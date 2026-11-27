@@ -8,10 +8,12 @@ janela, e nesse caso o Caduceus corre no tamanho que o terminal tiver.
 
 import ctypes
 import os
+import subprocess
 from ctypes import wintypes
 
 from caduceus.config import WINDOW_COLUMNS, WINDOW_LINES
 
+_MODE_COMMAND = r"%WINDIR%\System32\mode.com"
 _GWL_STYLE = -16
 _WS_THICKFRAME = 0x00040000
 _WS_MAXIMIZEBOX = 0x00010000
@@ -37,5 +39,14 @@ def _lock_resizing() -> None:
 
 
 def fix_console_size() -> None:
-    os.system(f"mode con: cols={WINDOW_COLUMNS} lines={WINDOW_LINES} >nul")
+    subprocess.run(
+        [
+            os.path.expandvars(_MODE_COMMAND),
+            "con:",
+            f"cols={WINDOW_COLUMNS}",
+            f"lines={WINDOW_LINES}",
+        ],
+        stdout=subprocess.DEVNULL,
+        check=False,
+    )
     _lock_resizing()

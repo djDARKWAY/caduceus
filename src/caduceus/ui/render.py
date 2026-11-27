@@ -8,24 +8,28 @@ from rich import box
 from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.padding import Padding
+from rich.panel import Panel
 from rich.progress_bar import ProgressBar
 from rich.table import Table
 from rich.text import Text
 
 from caduceus import __version__
 from caduceus.config import (
+    CONFIRM_WIDTH,
     DETAIL_GAP,
     DETAIL_STYLE,
     DETAIL_WIDTH,
+    MAX_LISTED_PLACES,
     PROGRESS_WIDTH,
     SELECTED_STYLE,
 )
-from caduceus.controllers.menus import Menu, MenuItem
-from caduceus.controllers.navigation import Navigation
+from caduceus.controllers.menus import MenuItem
+from caduceus.controllers.navigation import Navigation, is_blocked
 from caduceus.maintenance.actions import Outcome, Step
+from caduceus.settings import Settings
 from caduceus.ui.assets import LOGO_LINES, NAME_LINES, NAME_WIDTH
 from caduceus.ui.i18n import Texts
-from caduceus.ui.palette import ACCENT, WARNING
+from caduceus.ui.palette import ACCENT, DANGER, WARNING
 
 VERSION_LABEL = f"v{__version__}"
 
@@ -38,8 +42,15 @@ HINTS = (
 )
 
 OUTCOME_HINTS = (("ENTER", "hint.back"),)
+CONFIRM_HINTS = (("ENTER", "hint.confirm"), ("BACKSPACE", "hint.cancel"))
+
+NOT_COUNTED = "—"
+RUN_ALL_MARK = "►"
+BULLET = "•"
 
 _BODY_PADDING = (1, 0, 0, 2)
+# Linhas da tabela antes da primeira opção: a em branco, os títulos das colunas e o separador
+_TABLE_HEADER_LINES = 3
 
 
 def _render_header(texts: Texts) -> RenderableType:
@@ -57,32 +68,91 @@ def _render_header(texts: Texts) -> RenderableType:
     return header
 
 
-def _render_option(label: str, is_selected: bool) -> Text:
-    return Text(f" {label} ", style=SELECTED_STYLE if is_selected else "")
+def _render_option(texts: Texts, item: MenuItem, is_selected: bool, settings: Settings) -> Text:
+    option = Text(f" {texts[item.label_key]} ", style=SELECTED_STYLE if is_selected else "")
+    if item.setting is not None:
+        is_on = getattr(settings, item.setting)
+        option.append(
+            texts["setting.on" if is_on else "setting.off"],
+            style=ACCENT if is_on else DANGER,
+        )
+        option.append(" ")
+    return option
 
 
-def _render_detail(texts: Texts, item: MenuItem) -> RenderableType:
+def _render_detail(texts: Texts, item: MenuItem, lead_lines: int) -> RenderableType:
     if item.description_key is None:
         return Text("")
-    # A linha em branco alinha a descrição com a primeira opção, por baixo do título
-    return Group(Text(""), Text(texts[item.description_key], style=DETAIL_STYLE))
+    # As linhas em branco alinham a descrição com a primeira opção, por baixo do título
+    lines = [Text("") for _ in range(lead_lines)]
+    if item.admin is not None:
+        lines.append(Text(texts[item.admin.value], style=WARNING))
+    lines.append(Text(texts[item.description_key], style=DETAIL_STYLE))
+    return Group(*lines)
 
 
-def _render_menu(texts: Texts, menu: Menu, selected_index: int) -> RenderableType:
-    options = [Text(texts[menu.title_key], style=f"bold {ACCENT}")]
-    for position, item in enumerate(menu.items):
+def format_estimate(estimate: int | None) -> str:
+    if estimate is None:
+        return NOT_COUNTED
+    return f"~{format_size(estimate)}" if estimate else format_size(0)
+
+
+def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableType:
+    table = Table(
+        box=box.SIMPLE_HEAD, pad_edge=False, header_style=f"bold {ACCENT}", padding=(0, 2, 0, 0)
+    )
+    table.add_column(texts["table.action"], no_wrap=True)
+    table.add_column(texts["table.gain"], justify="right", no_wrap=True)
+    items = navigation.menu.items
+    total = sum(
+        navigation.estimates.get(item.label_key) or 0
+        for item in items
+        if not is_blocked(navigation, item)
+    )
+    for position, item in enumerate(items):
+        selected = position == navigation.index
+        if item.runs_all:
+            table.add_section()
+            style = f"bold reverse {ACCENT}" if selected else f"bold {ACCENT}"
+            title = Text(f" {RUN_ALL_MARK} {texts[item.label_key]}")
+            table.add_row(title, format_estimate(total), style=style)
+            continue
+        blocked = is_blocked(navigation, item)
+        estimate = navigation.estimates.get(item.label_key)
+        table.add_row(
+            Text(f" {texts[item.label_key]}"),
+            format_estimate(estimate),
+            style=SELECTED_STYLE if selected else ("dim" if blocked else ""),
+        )
+    return table
+
+
+def _render_options(texts: Texts, navigation: Navigation) -> tuple[RenderableType, int]:
+    """As opções do menu e as linhas que ocupam antes da primeira (para alinhar a descrição)."""
+    title = Text(texts[navigation.menu.title_key], style=f"bold {ACCENT}")
+    if any(item.estimate is not None for item in navigation.menu.items):
+        return Group(title, _render_estimates_table(texts, navigation)), _TABLE_HEADER_LINES
+    options = [title]
+    for position, item in enumerate(navigation.menu.items):
         if item.quits:
             options.append(Text(""))
-        options.append(_render_option(texts[item.label_key], position == selected_index))
+        is_selected = position == navigation.index
+        options.append(_render_option(texts, item, is_selected, navigation.settings))
+    return Group(*options), 0
+
+
+def _render_menu(texts: Texts, navigation: Navigation) -> RenderableType:
+    options, header_lines = _render_options(texts, navigation)
     layout = Table.grid(padding=(0, 0, 0, DETAIL_GAP))
     layout.add_column(no_wrap=True)
     layout.add_column(max_width=DETAIL_WIDTH)
-    layout.add_row(Group(*options), _render_detail(texts, menu.items[selected_index]))
+    detail = _render_detail(texts, navigation.item, 1 + header_lines)
+    layout.add_row(options, detail)
     return Padding(layout, _BODY_PADDING)
 
 
-def _render_notice(texts: Texts) -> RenderableType:
-    return Padding(Text(texts["menu.not_available"]), _BODY_PADDING)
+def _render_notice(texts: Texts, notice: str) -> RenderableType:
+    return Padding(Text(texts[notice]), _BODY_PADDING)
 
 
 def _render_hints(texts: Texts, shown: tuple[tuple[str, str], ...] = HINTS) -> RenderableType:
@@ -108,16 +178,15 @@ def format_size(size: int) -> str:
 
 def _render_progress(texts: Texts, title: str, step: Step) -> RenderableType:
     bar = Table.grid(padding=(0, 0, 0, 2))
-    bar.add_row(
-        ProgressBar(
-            total=step.total,
-            completed=step.done,
-            width=PROGRESS_WIDTH,
-            complete_style=ACCENT,
-            finished_style=ACCENT,
-        ),
-        Text(f"{step.done * 100 // step.total}%"),
+    progress_bar = ProgressBar(
+        total=step.total or None,
+        completed=step.done,
+        width=PROGRESS_WIDTH,
+        pulse=not step.total,
+        complete_style=ACCENT,
+        finished_style=ACCENT,
     )
+    bar.add_row(progress_bar, Text(f"{step.done * 100 // step.total}%" if step.total else ""))
     current = texts[step.text_key].format(**step.values)
     body = Group(
         Text(title, style=f"bold {ACCENT}"),
@@ -135,12 +204,16 @@ def _render_breakdown(texts: Texts, outcome: Outcome) -> RenderableType:
     table.add_column(texts["result.items"], justify="right")
     table.add_column(texts["result.freed"], justify="right")
     for row in outcome.rows:
-        label = texts[row.label_key].format(**row.values)
-        table.add_row(label, str(row.items), format_size(row.bytes_freed))
+        label = Text(texts[row.label_key].format(**row.values))
+        if row.needs_admin:
+            label.append(f" {texts['admin.tag']}", style=WARNING)
+        items = NOT_COUNTED if row.items is None else str(row.items)
+        table.add_row(label, items, format_size(row.bytes_freed))
     table.add_section()
+    nothing_counted = not outcome.items_counted
     table.add_row(
         Text(texts["result.total"], style="bold"),
-        Text(str(outcome.items), style="bold"),
+        Text(NOT_COUNTED if nothing_counted else str(outcome.items), style="bold"),
         Text(format_size(outcome.bytes_freed), style="bold"),
     )
     return table
@@ -149,8 +222,6 @@ def _render_breakdown(texts: Texts, outcome: Outcome) -> RenderableType:
 def _render_outcome(texts: Texts, title: str, outcome: Outcome) -> RenderableType:
     lines = [
         Text(title, style=f"bold {ACCENT}"),
-        Text(""),
-        Text(texts["result.done"]),
         _render_breakdown(texts, outcome),
     ]
     for label_key, places in (
@@ -159,8 +230,38 @@ def _render_outcome(texts: Texts, title: str, outcome: Outcome) -> RenderableTyp
     ):
         if places:
             lines += [Text(""), Text(texts[label_key], style=WARNING)]
-            lines += [Text(f"  {place}", style=WARNING, no_wrap=True) for place in places]
+            lines += [
+                Text(f"  {place}", style=WARNING, no_wrap=True)
+                for place in places[:MAX_LISTED_PLACES]
+            ]
+            if len(places) > MAX_LISTED_PLACES:
+                more = texts["result.more"].format(count=len(places) - MAX_LISTED_PLACES)
+                lines.append(Text(more, style=WARNING))
     return Padding(Group(*lines), _BODY_PADDING)
+
+
+def _render_confirmation(
+    texts: Texts, navigation: Navigation, item: MenuItem, confirm_key: str
+) -> RenderableType:
+    warning: list[RenderableType] = [Text(texts[confirm_key], style="bold")]
+    skipped = [
+        texts[other.label_key]
+        for other in navigation.menu.items
+        if item.runs_all and is_blocked(navigation, other)
+    ]
+    if skipped:
+        warning += [Text(""), Text(texts["confirm.skipped"], style=WARNING)]
+        warning += [Text(f"  {BULLET} {name}", style=WARNING) for name in skipped]
+    panel = Panel(
+        Group(*warning),
+        title=Text(f" {texts['confirm.title']} ", style=f"bold {DANGER}"),
+        border_style=DANGER,
+        box=box.HEAVY,
+        padding=(1, 2),
+        width=CONFIRM_WIDTH,
+    )
+    title = Text(texts[item.label_key], style=f"bold {ACCENT}")
+    return Padding(Group(title, Text(""), panel), _BODY_PADDING)
 
 
 def _frame(
@@ -170,16 +271,24 @@ def _frame(
 
 
 def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
-    if navigation.notice:
-        return _frame(texts, _render_notice(texts))
+    if navigation.notice is not None:
+        return _frame(texts, _render_notice(texts, navigation.notice))
+    confirm_key = navigation.item.confirm_key
+    if navigation.confirming and confirm_key is not None:
+        return _frame(
+            texts,
+            _render_confirmation(texts, navigation, navigation.item, confirm_key),
+            CONFIRM_HINTS,
+        )
     if navigation.outcome is not None:
         title = texts[navigation.item.label_key]
         return _frame(texts, _render_outcome(texts, title, navigation.outcome), OUTCOME_HINTS)
-    return _frame(texts, _render_menu(texts, navigation.menu, navigation.index))
+    return _frame(texts, _render_menu(texts, navigation))
 
 
 def render_progress(texts: Texts, navigation: Navigation, step: Step) -> RenderableType:
-    body = _render_progress(texts, texts[navigation.item.label_key], step)
+    title_key = navigation.menu.title_key if navigation.estimating else navigation.item.label_key
+    body = _render_progress(texts, texts[title_key], step)
     return Group(_render_header(texts), body)
 
 

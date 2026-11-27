@@ -6,7 +6,7 @@ import pytest
 
 from caduceus.controllers.menus import MAIN_MENU, Menu
 from caduceus.ui.assets import NAME_WIDTH
-from caduceus.ui.render import HINTS, OUTCOME_HINTS, VERSION_LABEL
+from caduceus.ui.render import CONFIRM_HINTS, HINTS, OUTCOME_HINTS, VERSION_LABEL
 
 LOCALES_DIR = Path(__file__).parent.parent / "src" / "caduceus" / "ui" / "locales"
 LANGUAGES = sorted(path.stem for path in LOCALES_DIR.glob("*.json"))
@@ -27,8 +27,12 @@ def menu_text_keys(menu: Menu) -> set[str]:
     keys = {menu.title_key}
     for item in menu.items:
         keys.add(item.label_key)
+        if item.admin is not None:
+            keys.add(item.admin.value)
         if item.description_key is not None:
             keys.add(item.description_key)
+        if item.confirm_key is not None:
+            keys.add(item.confirm_key)
         if item.submenu is not None:
             keys |= menu_text_keys(item.submenu)
     return keys
@@ -55,8 +59,25 @@ def test_tagline_fits_beside_the_version_under_the_banner(language: str) -> None
 @pytest.mark.parametrize("language", LANGUAGES)
 def test_every_text_the_screens_use_exists(language: str) -> None:
     texts = read_locale(language)
-    used = menu_text_keys(MAIN_MENU) | {text_key for _, text_key in HINTS + OUTCOME_HINTS}
-    used |= {"app.tagline", "menu.not_available", "recycle_bin.step", "cleaning.step"}
-    used |= {"result.done", "result.items", "result.freed"}
-    used |= {"result.admin", "result.failures"}
+    used = menu_text_keys(MAIN_MENU) | {
+        text_key for _, text_key in HINTS + OUTCOME_HINTS + CONFIRM_HINTS
+    }
+    used |= {
+        "app.tagline",
+        "notice.not_available",
+        "recycle_bin.step",
+        "cleaning.step",
+        "estimate.step",
+        "setting.on",
+        "setting.off",
+        "table.action",
+        "table.gain",
+        "confirm.title",
+        "confirm.skipped",
+        "result.more",
+        "notice.settings_not_saved",
+    }
+    used |= {"result.items", "result.freed"}
+    used |= {"result.admin", "result.failures", "result.category", "result.total", "admin.tag"}
+    used |= {"components.step", "windows_old.step"}
     assert all(texts.get(key) for key in used)
