@@ -19,8 +19,7 @@ MENU_WIDTH     = 32         # largura mínima da coluna das opções, em colunas
 DETAIL_GAP     = 6          # colunas de espaço entre o menu e a descrição
 DETAIL_WIDTH   = 62         # largura máxima da descrição, em colunas
 PROGRESS_WIDTH = 40         # largura da barra de progresso, em colunas
-PROGRESS_REFRESH_SECONDS = 0.05  # intervalo mínimo entre redesenhos da barra de progresso
-PROGRESS_REFRESH_RATE = 8   # fotogramas por segundo da animação de progresso
+PROGRESS_REFRESH_SECONDS = 0.1  # intervalo mínimo entre redesenhos da barra de progresso
 CONFIRM_WIDTH  = 90         # largura do quadro de confirmação, em colunas
 MAX_LISTED_PLACES = 3       # locais listados num aviso do resultado (os restantes são contados)
 

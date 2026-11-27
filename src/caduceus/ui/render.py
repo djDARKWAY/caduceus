@@ -24,7 +24,6 @@ from caduceus.config import (
     LOG_MIN_AGE_HOURS,
     MAX_LISTED_PLACES,
     MENU_WIDTH,
-    PROGRESS_REFRESH_RATE,
     PROGRESS_WIDTH,
     SELECTED_STYLE,
     STARTUP_VISIBLE_ROWS,
@@ -418,7 +417,7 @@ def open_display(console: Console, texts: Texts, navigation: Navigation) -> Live
         render_screen(texts, navigation),
         console=console,
         screen=True,
-        refresh_per_second=PROGRESS_REFRESH_RATE,
+        auto_refresh=False,  # só se redesenha quando algo muda: a consola clássica pisca se não
     )
 
 
