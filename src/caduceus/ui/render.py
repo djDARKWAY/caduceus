@@ -57,7 +57,7 @@ _BODY_PADDING = (1, 0, 0, 2)
 # Linhas da tabela antes da primeira opção: a em branco, os títulos das colunas e o separador
 _TABLE_HEADER_LINES = 3
 # Larguras fixas das colunas da lista com células, para não mudarem ao deslocar a lista
-_NAME_WIDTH = 28
+_NAME_WIDTH = 26
 _STATE_WIDTH = 5
 # O aviso de administrador fica ao nível dos títulos das colunas (a segunda linha do menu)
 _TABLE_WARNING_LINE = 2

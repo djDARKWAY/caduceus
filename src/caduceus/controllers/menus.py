@@ -214,7 +214,7 @@ def startup_menu() -> Menu:
     return Menu(
         "startup.title",
         items or (MenuItem("startup.none", description_key="startup.none.description"),),
-        (("startup.column.memory", 10), ("startup.column.impact", 6), ("startup.column.type", 7)),
+        (("startup.column.memory", 9), ("startup.column.impact", 6), ("startup.column.type", 7)),
         selectable_when_blocked=True,
     )
 
