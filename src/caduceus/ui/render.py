@@ -89,6 +89,22 @@ def _render_option(texts: Texts, item: MenuItem, is_selected: bool, settings: Se
     return option
 
 
+def _render_description(description: str) -> list[RenderableType]:
+    """Cada linha da descrição; as que começam por um marcador quebram com recuo, alinhadas com o
+    texto que vem depois do marcador."""
+    lines: list[RenderableType] = []
+    for line in description.splitlines():
+        if not line.startswith(f"{BULLET} "):
+            lines.append(Text(line, style=DETAIL_STYLE))
+            continue
+        item = Table.grid(padding=(0, 1, 0, 0))
+        item.add_column(no_wrap=True)
+        item.add_column()
+        item.add_row(Text(BULLET, style=DETAIL_STYLE), Text(line[2:], style=DETAIL_STYLE))
+        lines.append(item)
+    return lines
+
+
 def _render_detail(
     texts: Texts, item: MenuItem, warning_line: int, description_line: int
 ) -> RenderableType:
@@ -96,14 +112,14 @@ def _render_detail(
     `warning_line`, contadas a partir do título do menu."""
     if item.description_key is None:
         return Text("")
-    lines = [Text("") for _ in range(warning_line)]
+    lines: list[RenderableType] = [Text("") for _ in range(warning_line)]
     if item.admin is not None:
         lines.append(Text(texts[item.admin.value], style=WARNING))
     lines += [Text("") for _ in range(description_line - len(lines))]
     description = texts[item.description_key].format(
         cleanup_age=CLEANUP_MIN_AGE_HOURS, log_age=LOG_MIN_AGE_HOURS
     )
-    lines.append(Text(description, style=DETAIL_STYLE))
+    lines += _render_description(description)
     return Group(*lines)
 
 
