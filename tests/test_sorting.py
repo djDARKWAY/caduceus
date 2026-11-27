@@ -2,7 +2,14 @@ from dataclasses import replace
 
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, Menu, MenuItem
-from caduceus.controllers.navigation import Navigation, column_count, complete, display_order, press
+from caduceus.controllers.navigation import (
+    Navigation,
+    column_count,
+    complete,
+    display_order,
+    loads_menu,
+    press,
+)
 from caduceus.maintenance.actions import Outcome, Report
 
 MAINTENANCE = 1
@@ -183,3 +190,15 @@ def test_the_update_all_option_stays_last_in_any_sort_and_runs_its_own_action() 
 
     assert [menu.items[i].label_key for i in display_order(by_version)][-1] == "apps.update_all"
     assert press(replace(navigation, selected=(0, 2)), Key.ENTER).running is update_all
+
+
+def test_opening_or_reloading_a_list_is_announced_so_the_loading_can_be_shown() -> None:
+    def loader() -> Menu:
+        return Menu("programs.title", ())
+
+    parent = Menu("maintenance.title", (MenuItem("apps.uninstall", submenu_loader=loader),))
+    closed = Navigation(menus=(MAIN_MENU, parent), selected=(0, 0))
+
+    assert loads_menu(closed, Key.ENTER)
+    assert not loads_menu(closed, Key.DOWN)
+    assert not loads_menu(Navigation(), Key.ENTER)  # o menu principal não cria listas

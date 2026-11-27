@@ -2,10 +2,11 @@
 Aplicação
 
 Liga as peças: lê uma tecla, atualiza a navegação e redesenha, até o utilizador sair. Uma opção
-com ação corre logo ao ser escolhida, com a barra de progresso, e o resultado aparece no fim. Os
-menus com estimativas calculam-nas ao abrir (e a da ação que acabou de correr), também com a barra
-de progresso. Enquanto algo corre nenhum controlo funciona: as teclas carregadas são descartadas e
-o Ctrl+C é ignorado. As definições mudadas pelo utilizador guardam-se logo.
+com ação corre logo ao ser escolhida, com a barra de progresso, e o resultado aparece no fim. As
+listas que demoram a criar mostram o carregamento, e os menus com estimativas calculam-nas ao abrir
+(e a da ação que acabou de correr), também com a barra de progresso. Enquanto algo corre nenhum
+controlo funciona: as teclas carregadas são descartadas e o Ctrl+C é ignorado. As definições
+mudadas pelo utilizador guardam-se logo.
 """
 
 import signal
@@ -18,12 +19,13 @@ from rich.console import Console
 from rich.live import Live
 
 from caduceus.config import PROGRESS_REFRESH_SECONDS
-from caduceus.controllers.keys import discard_pending_keys, read_key
+from caduceus.controllers.keys import Key, discard_pending_keys, read_key
 from caduceus.controllers.navigation import (
     SETTINGS_NOT_SAVED_NOTICE,
     Navigation,
     complete,
     finish_estimates,
+    loads_menu,
     press,
 )
 from caduceus.maintenance.actions import Step
@@ -41,6 +43,15 @@ def _no_controls() -> Iterator[None]:
     finally:
         signal.signal(signal.SIGINT, previous_handler)
         discard_pending_keys()
+
+
+def _press(display: Live, texts: Texts, navigation: Navigation, key: Key) -> Navigation:
+    """Carrega a tecla; se ela cria uma lista que pode demorar, mostra o carregamento."""
+    if not loads_menu(navigation, key):
+        return press(navigation, key)
+    with _no_controls():
+        show_progress(display, texts, navigation, Step("loading.step", 0, 0))
+        return press(navigation, key)
 
 
 def _run_action(display: Live, texts: Texts, navigation: Navigation) -> Navigation:
@@ -83,7 +94,7 @@ def run(console: Console, texts: Texts) -> bool:
     navigation = Navigation(settings=load_settings(), administrator=is_admin(), texts=texts)
     with open_display(console, texts, navigation) as display:
         while not navigation.finished:
-            updated = press(navigation, read_key())
+            updated = _press(display, texts, navigation, read_key())
             if updated.settings != navigation.settings and not save_settings(updated.settings):
                 updated = replace(updated, notice=SETTINGS_NOT_SAVED_NOTICE)
             navigation = _run_estimates(display, texts, _run_action(display, texts, updated))

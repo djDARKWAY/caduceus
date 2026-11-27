@@ -135,6 +135,7 @@ def test_every_text_the_screens_use_exists(language: str) -> None:
         "notice.program_still_installed",
         "notice.uninstall_cancelled",
         "notice.uninstaller_not_opened",
+        "loading.step",
         "apps.update.title",
         "apps.update.step",
         "apps.update.item.description",

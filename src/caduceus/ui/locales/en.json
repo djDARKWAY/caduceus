@@ -93,6 +93,7 @@
   "table.gain": "Est. gain",
   "action.step": "Starting...",
   "estimate.step": "Estimating the space to free: {name}",
+  "loading.step": "Loading the list (this can take a few seconds)",
   "confirm.title": "ARE YOU SURE?",
   "confirm.skipped": "Skipped (Safe mode is ON, or it needs administrator):",
   "result.more": "  ...and {count} more",

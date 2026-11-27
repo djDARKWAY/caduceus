@@ -234,14 +234,32 @@ def _back(navigation: Navigation) -> Navigation:
     )
 
 
+def _reloads_menu(navigation: Navigation) -> bool:
+    if not navigation.item.refreshes_menu or len(navigation.menus) < 2:
+        return False
+    return navigation.menus[-2].items[navigation.selected[-2]].submenu_loader is not None
+
+
+def loads_menu(navigation: Navigation, key: Key) -> bool:
+    """Se a tecla faz criar uma lista (abrir uma tabela, ou voltar a criá-la depois de uma ação),
+    que pode demorar: a aplicação mostra o carregamento antes de chamar `press`."""
+    if navigation.estimating or navigation.confirming or key is Key.QUIT:
+        return False
+    if navigation.outcome is not None:
+        return key is Key.ENTER and _reloads_menu(navigation)
+    if navigation.notice is not None:
+        return key is Key.BACK and _reloads_menu(navigation)
+    item = navigation.item
+    return key is Key.ENTER and item.submenu_loader is not None and not is_blocked(navigation, item)
+
+
 def _reload(navigation: Navigation) -> Navigation:
     """Volta a criar a lista depois de uma ação que a muda, com o cursor na mesma posição da lista
     mostrada (e a mesma ordenação)."""
-    if not navigation.item.refreshes_menu or len(navigation.menus) < 2:
+    if not _reloads_menu(navigation):
         return navigation
     parent = navigation.menus[-2].items[navigation.selected[-2]]
-    if parent.submenu_loader is None:
-        return navigation
+    assert parent.submenu_loader is not None  # garantido por `_reloads_menu`
     position = display_order(navigation).index(navigation.index)
     reloaded = replace(navigation, menus=(*navigation.menus[:-1], parent.submenu_loader()))
     order = display_order(reloaded)
