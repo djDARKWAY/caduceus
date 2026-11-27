@@ -20,6 +20,7 @@ from caduceus.maintenance.free_space.run_all import run_all
 from caduceus.settings import Settings
 
 NOT_AVAILABLE_NOTICE = "notice.not_available"
+NOTHING_SELECTABLE_NOTICE = "notice.nothing_selectable"
 SETTINGS_NOT_SAVED_NOTICE = "notice.settings_not_saved"
 
 
@@ -121,7 +122,7 @@ def _enter(navigation: Navigation) -> Navigation:
     if submenu is not None:
         free = [i for i, other in enumerate(submenu.items) if not is_blocked(navigation, other)]
         if not free:
-            return navigation  # nada lá dentro se pode escolher com o Modo seguro ligado
+            return replace(navigation, notice=NOTHING_SELECTABLE_NOTICE)
         first = free[0]
         return replace(
             navigation,

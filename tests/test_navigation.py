@@ -442,10 +442,13 @@ def test_with_safe_mode_on_the_cursor_skips_the_options_that_need_it_off() -> No
     assert visited == [0, 3, 0, 3, 0]
 
 
-def test_a_list_where_everything_needs_safe_mode_off_cannot_be_opened() -> None:
+def test_a_list_where_everything_needs_safe_mode_off_stays_closed_and_says_why() -> None:
     navigation = list_menu(True, True)
 
-    assert press(navigation, Key.ENTER) == navigation
+    opened = press(navigation, Key.ENTER)
+
+    assert opened.menu == navigation.menu
+    assert opened.notice == "notice.nothing_selectable"
 
 
 def main_menu_at_restart(administrator: bool) -> Navigation:

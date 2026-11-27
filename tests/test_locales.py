@@ -95,6 +95,7 @@ def test_every_text_the_screens_use_exists(language: str) -> None:
         "startup.source.service",
         "startup.source.service_updater",
         "notice.restart_cancelled",
+        "notice.nothing_selectable",
         "memory.tasks.description",
         "tasks.title",
         "tasks.column.trigger",

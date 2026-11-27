@@ -81,6 +81,7 @@
   "admin.some": "[ADMIN] Parts of it need administrator.",
   "admin.all": "[ADMIN] Needs administrator.",
   "notice.not_available": "Not available yet.",
+  "notice.nothing_selectable": "Nothing here can be changed right now. Turn Safe mode OFF in Settings, or restart as administrator.",
   "settings.title": "SETTINGS",
   "settings.safe_mode": "Safe mode",
   "settings.safe_mode.description": "When ON, blocks the actions that cannot be undone and put the system at risk. Turn it OFF to run them. ON is recommended. Saved between sessions.\n• Blocked · Windows.old, restore points, hibernation",

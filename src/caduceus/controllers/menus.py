@@ -249,7 +249,6 @@ def _task_item(entry: TaskEntry) -> MenuItem:
         state=lambda: entry.enabled,
         description_key=description_key,
         description_values={"command": entry.command or "-", "name": entry.full_name},
-        admin=AdminNeed.ALL,
         risky=entry.needs_safe_mode_off,
         cells=(
             entry.memory_bytes,
