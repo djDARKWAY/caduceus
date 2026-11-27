@@ -9,7 +9,7 @@
   "menu.settings": "Settings",
   "menu.settings.description": "Change how Caduceus behaves. Your choices are saved for the next time.",
   "menu.restart_admin": "Restart as administrator",
-  "menu.restart_admin.description": "Closes Caduceus and opens it again with administrator rights. Windows asks you to confirm first, and if you decline nothing changes. Needed for the options marked [ADMIN].\n• Windows · shows its own confirmation window\n• Only available when not running as administrator",
+  "menu.restart_admin.description": "Opens Caduceus again with administrator rights and closes this console. Windows asks you to confirm first, and if you decline nothing changes. Needed for the options marked [ADMIN].\n• Windows · shows its own confirmation window\n• This console · closed when it was started from cmd or PowerShell",
   "menu.exit": "Exit",
   "maintenance.title": "MANUAL MAINTENANCE",
   "maintenance.cleanup": "Free up space",

@@ -451,6 +451,7 @@ def test_when_the_restart_goes_ahead_the_app_closes_without_a_result() -> None:
     done = complete(running, Outcome(0, 0, quit_after=True))
 
     assert done.finished
+    assert done.closes_console
     assert done.outcome is None
 
 

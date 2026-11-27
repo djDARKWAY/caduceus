@@ -36,6 +36,7 @@ class Navigation:
     running: Action | None = None
     outcome: Outcome | None = None
     finished: bool = False
+    closes_console: bool = False  # ao sair, fecha também a consola (ao reabrir como administrador)
 
     @property
     def estimating(self) -> bool:
@@ -181,7 +182,7 @@ def finish_estimates(navigation: Navigation, estimates: Mapping[str, int | None]
 
 def complete(navigation: Navigation, outcome: Outcome) -> Navigation:
     if outcome.quit_after:
-        return replace(navigation, running=None, finished=True)
+        return replace(navigation, running=None, finished=True, closes_console=True)
     if outcome.notice is not None:
         return replace(navigation, running=None, notice=outcome.notice)
     went_wrong = bool(outcome.failures or outcome.admin_required)

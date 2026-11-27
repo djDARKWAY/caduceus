@@ -78,7 +78,8 @@ def _run_estimates(display: Live, texts: Texts, navigation: Navigation) -> Navig
     return finish_estimates(navigation, estimates)
 
 
-def run(console: Console, texts: Texts) -> None:
+def run(console: Console, texts: Texts) -> bool:
+    """Corre a aplicação até sair e diz se a consola também deve fechar."""
     navigation = Navigation(settings=load_settings(), administrator=is_admin())
     with open_display(console, texts, navigation) as display:
         while not navigation.finished:
@@ -87,3 +88,4 @@ def run(console: Console, texts: Texts) -> None:
                 updated = replace(updated, notice=SETTINGS_NOT_SAVED_NOTICE)
             navigation = _run_estimates(display, texts, _run_action(display, texts, updated))
             show(display, texts, navigation)
+    return navigation.closes_console

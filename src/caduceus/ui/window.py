@@ -67,3 +67,65 @@ def fix_console_size() -> None:
         check=False,
     )
     _lock_resizing()
+
+
+_SHELLS = {"cmd.exe", "powershell.exe", "pwsh.exe"}
+_TH32CS_SNAPPROCESS = 0x2
+_PROCESS_TERMINATE = 0x1
+_INVALID_HANDLE = ctypes.c_void_p(-1).value
+
+
+class _ProcessEntry(ctypes.Structure):
+    _fields_ = (
+        ("size", wintypes.DWORD),
+        ("usage", wintypes.DWORD),
+        ("process_id", wintypes.DWORD),
+        ("default_heap_id", ctypes.c_size_t),
+        ("module_id", wintypes.DWORD),
+        ("threads", wintypes.DWORD),
+        ("parent_process_id", wintypes.DWORD),
+        ("priority", ctypes.c_long),
+        ("flags", wintypes.DWORD),
+        ("exe_file", ctypes.c_wchar * 260),
+    )
+
+
+def _running_processes() -> list[tuple[int, int, str]]:
+    """Os processos em execução, como (identificador, identificador do pai, nome do executável)."""
+    kernel32 = ctypes.windll.kernel32
+    kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    snapshot = kernel32.CreateToolhelp32Snapshot(_TH32CS_SNAPPROCESS, 0)
+    if snapshot == _INVALID_HANDLE:
+        return []
+    processes: list[tuple[int, int, str]] = []
+    entry = _ProcessEntry(size=ctypes.sizeof(_ProcessEntry))
+    found = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
+    while found:
+        processes.append((entry.process_id, entry.parent_process_id, entry.exe_file.lower()))
+        found = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
+    kernel32.CloseHandle(snapshot)
+    return processes
+
+
+def launching_shell(processes: list[tuple[int, int, str]], own_id: int) -> int | None:
+    """O identificador do shell (cmd, PowerShell) que lançou este processo, ou None se foi outro."""
+    names = {process_id: name for process_id, _parent, name in processes}
+    parents = {process_id: parent for process_id, parent, _name in processes}
+    parent = parents.get(own_id)
+    if parent is not None and names.get(parent) in _SHELLS:
+        return parent
+    return None
+
+
+def close_launching_shell() -> None:
+    """Termina o shell que lançou o Caduceus, o que fecha a consola onde ele corria. Só se for
+    mesmo um shell: se o Caduceus foi lançado por outro programa, não se mexe em nada."""
+    shell = launching_shell(_running_processes(), os.getpid())
+    if shell is None:
+        return
+    kernel32 = ctypes.windll.kernel32
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    handle = kernel32.OpenProcess(_PROCESS_TERMINATE, False, shell)
+    if handle:
+        kernel32.TerminateProcess(handle, 0)  # saída com êxito: o Terminal fecha o separador
+        kernel32.CloseHandle(handle)
