@@ -36,6 +36,11 @@ from caduceus.maintenance.memory.hibernation import (
     turn_off_hibernation,
     turn_on_hibernation,
 )
+from caduceus.maintenance.memory.scheduled_tasks import (
+    TaskEntry,
+    list_scheduled_tasks,
+    toggle_task,
+)
 from caduceus.maintenance.memory.startup_programs import (
     StartupEntry,
     StartupSource,
@@ -230,6 +235,41 @@ def startup_menu() -> Menu:
     )
 
 
+def _task_item(entry: TaskEntry) -> MenuItem:
+    impact = impact_of(entry.memory_bytes)
+    description_key = (
+        "tasks.item.protected.description"
+        if entry.needs_safe_mode_off
+        else "tasks.item.description"
+    )
+    return MenuItem(
+        f"task:{entry.full_name}",
+        label=entry.name,
+        action=toggle_task(entry),
+        state=lambda: entry.enabled,
+        description_key=description_key,
+        description_values={"command": entry.command or "-", "name": entry.full_name},
+        admin=AdminNeed.ALL,
+        risky=entry.needs_safe_mode_off,
+        cells=(
+            entry.memory_bytes,
+            f"impact.{impact}" if impact else None,
+            f"tasks.{entry.trigger}",
+        ),
+        instant=True,
+    )
+
+
+def tasks_menu() -> Menu:
+    """O menu das tarefas agendadas de arranque, criado a partir do que o Windows tem agora."""
+    items = tuple(_task_item(entry) for entry in list_scheduled_tasks())
+    return Menu(
+        "tasks.title",
+        items or (MenuItem("tasks.none", description_key="tasks.none.description"),),
+        (("startup.column.memory", 9), ("startup.column.impact", 6), ("tasks.column.trigger", 7)),
+    )
+
+
 HIBERNATION_MENU = Menu(
     "memory.hibernation.title",
     (
@@ -258,6 +298,11 @@ MEMORY_MENU = Menu(
             "memory.startup",
             submenu_loader=startup_menu,
             description_key="memory.startup.description",
+        ),
+        MenuItem(
+            "memory.tasks",
+            submenu_loader=tasks_menu,
+            description_key="memory.tasks.description",
         ),
         MenuItem(
             "memory.hibernation",

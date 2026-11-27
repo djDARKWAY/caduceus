@@ -44,7 +44,7 @@ _MACHINE_FOLDER = r"%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 _ENABLED = b"\x02\x00\x00\x00" + bytes(8)
 _DISABLED_MARK = b"\x03\x00\x00\x00"
 _SERVICE_AUTOMATIC = 2
-_UPDATER_WORDS = ("update", "updater")
+UPDATER_WORDS = ("update", "updater")
 _SERVICE_MANUAL = 3
 _SERVICE_PROCESS_TYPES = 0x10 | 0x20  # serviços que correm num processo (os restantes são drivers)
 _SERVICE_MARK = "CaduceusDisabledStartup"
@@ -106,7 +106,7 @@ class StartupEntry:
     def needs_safe_mode_off(self) -> bool:
         """Os serviços exigem o Modo seguro desligado, exceto os de atualização, que se podem
         passar a manual sem risco: os de segurança, VPN, drivers e bases de dados, não."""
-        is_updater = any(word in f"{self.label} {self.name}".lower() for word in _UPDATER_WORDS)
+        is_updater = any(word in f"{self.label} {self.name}".lower() for word in UPDATER_WORDS)
         return self.source is StartupSource.SERVICE and not is_updater
 
 

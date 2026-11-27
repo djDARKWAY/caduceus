@@ -31,6 +31,9 @@ WINDOWS_OLD_OPTION = next(
 RECYCLE_BIN_OPTION = next(
     index for index, item in enumerate(CLEANUP_MENU.items) if item.action is empty_recycle_bin
 )
+HIBERNATION_OPTION = next(
+    index for index, item in enumerate(MEMORY_MENU.items) if item.label_key == "memory.hibernation"
+)
 RISKY_OPTIONS = {index for index, item in enumerate(CLEANUP_MENU.items) if item.risky}
 
 
@@ -302,7 +305,7 @@ def test_after_run_all_every_estimate_is_calculated_again() -> None:
 def open_hibernation(safe_mode: bool = False, administrator: bool = True) -> Navigation:
     navigation = Navigation(
         menus=(MAIN_MENU, MEMORY_MENU),
-        selected=(0, 1),
+        selected=(0, HIBERNATION_OPTION),
         settings=Settings(safe_mode=safe_mode),
         administrator=administrator,
     )
@@ -332,7 +335,9 @@ def test_turning_hibernation_on_runs_straight_away() -> None:
 
 def test_safe_mode_blocks_hibernation_before_the_submenu() -> None:
     navigation = Navigation(
-        menus=(MAIN_MENU, MEMORY_MENU), selected=(0, 1), settings=Settings(safe_mode=True)
+        menus=(MAIN_MENU, MEMORY_MENU),
+        selected=(0, HIBERNATION_OPTION),
+        settings=Settings(safe_mode=True),
     )
 
     assert press(navigation, Key.ENTER) == navigation
