@@ -70,7 +70,7 @@ def screen_lines(navigation: Navigation, height: int = WINDOW_LINES) -> list[str
     return console.export_text().splitlines()
 
 
-def test_the_controls_stay_on_the_last_line_whatever_the_screen_shows() -> None:
+def test_the_controls_stay_above_a_free_last_line_whatever_the_screen_shows() -> None:
     main_menu = Navigation()
     startup_list = Navigation(menus=(MAIN_MENU, startup_menu()), selected=(0, 0))
     scrolled = replace(startup_list, selected=(0, len(startup_list.menu.items) - 1))
@@ -78,5 +78,6 @@ def test_the_controls_stay_on_the_last_line_whatever_the_screen_shows() -> None:
     for navigation in (main_menu, startup_list, scrolled):
         lines = screen_lines(navigation)
 
-        assert lines[-1].startswith("  ↑ Up")
+        assert lines[-2].startswith("  ↑ Up")
+        assert not lines[-1].strip()
         assert len(lines) == WINDOW_LINES

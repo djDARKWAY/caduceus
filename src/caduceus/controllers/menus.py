@@ -306,16 +306,16 @@ MAIN_MENU = Menu(
             description_key="menu.maintenance.description",
         ),
         MenuItem(
-            "menu.settings",
-            SETTINGS_MENU,
-            description_key="menu.settings.description",
-        ),
-        MenuItem(
             "menu.restart_admin",
             action=restart_as_administrator,
             description_key="menu.restart_admin.description",
             only_without_admin=True,
             instant=True,
+        ),
+        MenuItem(
+            "menu.settings",
+            SETTINGS_MENU,
+            description_key="menu.settings.description",
         ),
         MenuItem("menu.exit", quits=True),
     ),

@@ -16,4 +16,5 @@ def _read_lines(file_name: str) -> tuple[str, ...]:
 
 LOGO_LINES = _read_lines("logo.txt")
 NAME_LINES = _read_lines("name.txt")
+LOGO_WIDTH = max(len(line) for line in LOGO_LINES)
 NAME_WIDTH = max(len(line) for line in NAME_LINES)

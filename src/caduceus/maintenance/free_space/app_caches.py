@@ -3,7 +3,8 @@ Limpar as caches das aplicações
 
 Apaga as caches de aplicações conhecidas: Discord, Slack, Microsoft Teams, Telegram, Spotify, Zoom
 (neste, os registos), Notion, Obsidian, Figma, Postman, VS Code (incluindo as extensões
-descarregadas), Cursor, a loja do Steam e o Epic Games Launcher. Só mexe nas pastas de cache: nunca
+descarregadas), Cursor, GitHub Desktop, a loja do Steam, o Epic Games Launcher, o Adobe (a cache de
+multimédia) e o OneDrive (só os registos). Só mexe nas pastas de cache: nunca
 em contas, mensagens, notas, definições nem nas músicas descarregadas do Spotify. O que não está
 instalado é ignorado.
 """
@@ -40,6 +41,10 @@ LOCATIONS = (
     Location(_TELEGRAM + r"\cache", "category.app_telegram"),
     Location(_TELEGRAM + r"\media_cache", "category.app_telegram"),
     Location(r"%APPDATA%\Zoom\logs", "category.app_zoom"),
+    *chromium_caches(r"%APPDATA%\GitHub Desktop", "category.app_github_desktop"),
+    Location(r"%APPDATA%\Adobe\Common\Media Cache Files", "category.app_adobe"),
+    Location(r"%APPDATA%\Adobe\Common\Media Cache", "category.app_adobe"),
+    Location(r"%LOCALAPPDATA%\Microsoft\OneDrive\logs", "category.app_onedrive"),
 )
 
 

@@ -32,16 +32,14 @@ from caduceus.config import (
 from caduceus.controllers.menus import MenuItem
 from caduceus.controllers.navigation import (
     Navigation,
-    blocked_by_missing_administrator,
-    blocked_by_present_administrator,
     blocked_by_safe_mode,
     is_blocked,
 )
 from caduceus.maintenance.actions import Outcome, Step
 from caduceus.settings import Settings
-from caduceus.ui.assets import LOGO_LINES, NAME_LINES, NAME_WIDTH
+from caduceus.ui.assets import LOGO_LINES, LOGO_WIDTH, NAME_LINES, NAME_WIDTH
 from caduceus.ui.i18n import Texts
-from caduceus.ui.palette import ACCENT, DANGER, WARNING
+from caduceus.ui.palette import ACCENT, ACCENT_DARK, WARNING
 
 VERSION_LABEL = f"v{__version__}"
 
@@ -62,7 +60,12 @@ BULLET = "•"
 
 _BODY_PADDING = (1, 0, 0, 2)
 _HINTS_PADDING = (0, 0, 0, 2)
-_HEADER_LINES = max(len(LOGO_LINES), len(NAME_LINES) + 2)  # o nome, uma linha em branco e a versão
+_BOTTOM_MARGIN = 1  # linha livre por baixo das teclas (com texto, senão o Layout desenha um painel)
+_MODE_KEYS = ("mode.normal", "mode.administrator")
+_HEADER_PADDING = (1, 0, 0, 2)  # uma linha livre por cima e o mesmo recuo do corpo à esquerda
+_HEADER_LINES = (
+    max(len(LOGO_LINES) + 1, len(NAME_LINES) + 2) + _HEADER_PADDING[0]
+)  # logótipo e modo, ou nome e versão
 # Linhas da tabela antes da primeira opção: a em branco, os títulos das colunas e o separador
 _TABLE_HEADER_LINES = 3
 # Larguras fixas das colunas da lista com células, para não mudarem ao deslocar a lista
@@ -72,19 +75,26 @@ _STATE_WIDTH = 5
 _TABLE_WARNING_LINE = 2
 
 
-def _render_header(texts: Texts) -> RenderableType:
+def _render_header(texts: Texts, administrator: bool) -> RenderableType:
     tagline = texts["app.tagline"]
     info_line = f"{tagline} {VERSION_LABEL:>{NAME_WIDTH - len(tagline) - 1}}"
+    mode = texts["mode.administrator" if administrator else "mode.normal"]
     banner = Group(
         Text("\n".join(NAME_LINES), style=ACCENT, no_wrap=True),
         Text(""),
         Text(info_line, style=ACCENT, no_wrap=True),
     )
+    # A coluna do logótipo tem a largura do modo mais comprido, para o nome não mudar de sítio
+    logo_width = max(LOGO_WIDTH, *(len(texts[key]) for key in _MODE_KEYS))
+    logo = Group(
+        Text("\n".join(LOGO_LINES), style=ACCENT, no_wrap=True),
+        Text(mode.center(logo_width), style=ACCENT_DARK, no_wrap=True),
+    )
     header = Table.grid(padding=(0, 4))
-    header.add_column(vertical="middle")
+    header.add_column(width=logo_width)
     header.add_column()
-    header.add_row(Text("\n".join(LOGO_LINES), style=ACCENT), banner)
-    return header
+    header.add_row(logo, banner)
+    return Padding(header, _HEADER_PADDING)
 
 
 def item_label(texts: Texts, item: MenuItem) -> str:
@@ -107,7 +117,7 @@ def _render_option(
     if is_on is not None:
         option.append(
             texts["setting.on" if is_on else "setting.off"],
-            style=ACCENT if is_on else DANGER,
+            style=ACCENT,
         )
         option.append(" ")
     option.pad_right(max(0, MENU_WIDTH - option.cell_len))
@@ -211,7 +221,7 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
         is_on = _is_on(item, navigation.settings)
         state = Text("" if is_on is None else texts["setting.on" if is_on else "setting.off"])
         if not selected and is_on is not None:
-            state.stylize(ACCENT if is_on else DANGER)
+            state.stylize(ACCENT)
         cells = [_cell_text(texts, cell) for cell in item.cells]
         cells += [""] * (len(menu.columns) - len(cells))
         blocked = is_blocked(navigation, item)
@@ -232,11 +242,7 @@ def _menu_title(texts: Texts, navigation: Navigation, count: int | None = None) 
     items = navigation.menu.items
     reasons = [
         texts[key]
-        for key, blocked in (
-            ("blocked.administrator", blocked_by_missing_administrator),
-            ("blocked.already_administrator", blocked_by_present_administrator),
-            ("blocked.safe_mode", blocked_by_safe_mode),
-        )
+        for key, blocked in (("blocked.safe_mode", blocked_by_safe_mode),)
         if any(blocked(navigation, item) for item in items)
     ]
     if reasons:
@@ -396,8 +402,8 @@ def _render_confirmation(
         warning += [Text(f"  {BULLET} {name}", style=WARNING) for name in skipped]
     panel = Panel(
         Group(*warning),
-        title=Text(f" {texts['confirm.title']} ", style=f"bold {DANGER}"),
-        border_style=DANGER,
+        title=Text(f" {texts['confirm.title']} ", style=f"bold {ACCENT}"),
+        border_style=ACCENT,
         box=box.HEAVY,
         padding=(1, 2),
         width=CONFIRM_WIDTH,
@@ -407,32 +413,39 @@ def _render_confirmation(
 
 
 def _frame(
-    texts: Texts, body: RenderableType, hints: tuple[tuple[str, str], ...] = HINTS
+    texts: Texts,
+    navigation: Navigation,
+    body: RenderableType,
+    hints: tuple[tuple[str, str], ...] = HINTS,
 ) -> RenderableType:
-    # O cabeçalho no topo e as teclas na última linha, por mais que o corpo cresça ou encolha
+    # O cabeçalho no topo e as teclas na penúltima linha, por mais que o corpo cresça ou encolha
     layout = Layout()
     layout.split_column(
-        Layout(_render_header(texts), size=_HEADER_LINES),
+        Layout(_render_header(texts, navigation.administrator), size=_HEADER_LINES),
         Layout(body),
         Layout(_render_hints(texts, hints), size=1),
+        Layout(Text(" "), size=_BOTTOM_MARGIN),
     )
     return layout
 
 
 def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
     if navigation.notice is not None:
-        return _frame(texts, _render_notice(texts, navigation.notice), NOTICE_HINTS)
+        return _frame(texts, navigation, _render_notice(texts, navigation.notice), NOTICE_HINTS)
     confirm_key = navigation.item.confirm_key
     if navigation.confirming and confirm_key is not None:
         return _frame(
             texts,
+            navigation,
             _render_confirmation(texts, navigation, navigation.item, confirm_key),
             CONFIRM_HINTS,
         )
     if navigation.outcome is not None:
         title = item_label(texts, navigation.item)
-        return _frame(texts, _render_outcome(texts, title, navigation.outcome), OUTCOME_HINTS)
-    return _frame(texts, _render_menu(texts, navigation))
+        return _frame(
+            texts, navigation, _render_outcome(texts, title, navigation.outcome), OUTCOME_HINTS
+        )
+    return _frame(texts, navigation, _render_menu(texts, navigation))
 
 
 def render_progress(texts: Texts, navigation: Navigation, step: Step) -> RenderableType:
@@ -442,7 +455,7 @@ def render_progress(texts: Texts, navigation: Navigation, step: Step) -> Rendera
         else item_label(texts, navigation.item)
     )
     body = _render_progress(texts, title, step)
-    return Group(_render_header(texts), body)
+    return Group(_render_header(texts, navigation.administrator), body)
 
 
 def open_display(console: Console, texts: Texts, navigation: Navigation) -> Live:

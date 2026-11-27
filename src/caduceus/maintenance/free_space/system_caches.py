@@ -3,13 +3,15 @@ Limpar as caches do sistema
 
 Apaga a cache de transferências do Windows Update, a da Otimização da Entrega, as caches de shaders
 do DirectX, da NVIDIA e da AMD, a cache da Microsoft Store, a da Pesquisa do Windows e a cache de
-Internet do Windows (`INetCache`). O Windows e os jogos voltam a criá-las quando precisam.
+Internet do Windows (`INetCache`), e os restos de instaladores de drivers da NVIDIA e da AMD. O
+Windows e os jogos voltam a criar as caches quando precisam.
 """
 
 from caduceus.maintenance.actions import Outcome, Report
 from caduceus.maintenance.free_space.cleaner import Location, clean_locations, estimate_locations
 
 _PACKAGES = r"%LOCALAPPDATA%\Packages"
+_DRIVERS = "category.driver_installers"
 LOCATIONS = (
     Location(
         r"%WINDIR%\SoftwareDistribution\Download",
@@ -35,6 +37,13 @@ LOCATIONS = (
         "category.search_cache",
     ),
     Location(r"%LOCALAPPDATA%\Microsoft\Windows\INetCache", "category.internet_cache"),
+    Location(r"%SYSTEMDRIVE%\NVIDIA", _DRIVERS, needs_admin=True),
+    Location(r"%SYSTEMDRIVE%\AMD", _DRIVERS, needs_admin=True),
+    Location(
+        r"%PROGRAMDATA%\NVIDIA Corporation\Downloader",
+        _DRIVERS,
+        needs_admin=True,
+    ),
 )
 
 
