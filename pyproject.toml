@@ -19,7 +19,7 @@ version = { attr = "caduceus.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-caduceus = ["locales/*.json"]
+caduceus = ["locales/*.json", "assets/*.txt"]
 
 [tool.mypy]
 strict = true

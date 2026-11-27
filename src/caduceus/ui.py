@@ -11,7 +11,7 @@ from rich.table import Table
 from rich.text import Text
 
 from caduceus import __version__
-from caduceus.branding import BANNER_LINES, BANNER_WIDTH, ICON_LINES
+from caduceus.assets import LOGO_LINES, NAME_LINES, NAME_WIDTH
 from caduceus.config import ACCENT_STYLE, DETAIL_GAP, DETAIL_STYLE, DETAIL_WIDTH, SELECTED_STYLE
 from caduceus.i18n import Texts
 from caduceus.menus import Menu, MenuItem
@@ -32,16 +32,16 @@ _BODY_PADDING = (1, 0, 0, 2)
 
 def _render_header(texts: Texts) -> RenderableType:
     tagline = texts["app.tagline"]
-    info_line = f"{tagline} {VERSION_LABEL:>{BANNER_WIDTH - len(tagline) - 1}}"
+    info_line = f"{tagline} {VERSION_LABEL:>{NAME_WIDTH - len(tagline) - 1}}"
     banner = Group(
-        Text("\n".join(BANNER_LINES), style=ACCENT_STYLE, no_wrap=True),
+        Text("\n".join(NAME_LINES), style=ACCENT_STYLE, no_wrap=True),
         Text(""),
         Text(info_line, style=ACCENT_STYLE, no_wrap=True),
     )
     header = Table.grid(padding=(0, 4))
     header.add_column(vertical="middle")
     header.add_column()
-    header.add_row(Text("\n".join(ICON_LINES), style=ACCENT_STYLE), banner)
+    header.add_row(Text("\n".join(LOGO_LINES), style=ACCENT_STYLE), banner)
     return header
 
 

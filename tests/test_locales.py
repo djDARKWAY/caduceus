@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from caduceus.branding import BANNER_WIDTH
+from caduceus.assets import NAME_WIDTH
 from caduceus.menus import MAIN_MENU, Menu
 from caduceus.ui import HINTS, VERSION_LABEL
 
@@ -49,7 +49,7 @@ def test_translation_keeps_the_placeholders_of_english(language: str) -> None:
 @pytest.mark.parametrize("language", LANGUAGES)
 def test_tagline_fits_beside_the_version_under_the_banner(language: str) -> None:
     tagline = read_locale(language)["app.tagline"]
-    assert len(tagline) + 1 + len(VERSION_LABEL) <= BANNER_WIDTH
+    assert len(tagline) + 1 + len(VERSION_LABEL) <= NAME_WIDTH
 
 
 @pytest.mark.parametrize("language", LANGUAGES)
