@@ -7,6 +7,11 @@ e das pastas Arranque (do utilizador e de todos os utilizadores). Desligar não 
 decisão em `Explorer\StartupApproved`, o sítio que o próprio Windows consulta, por isso o programa
 continua instalado e pode ser ligado outra vez. Os programas da máquina exigem administrador.
 
+Vêm também os serviços de terceiros com arranque automático (por exemplo, o do FortiClient), que
+o Gestor de Tarefas não mostra no separador Arranque. Desligar um serviço passa-o a arranque
+manual (`Start` = 3), nunca a desativado, e deixa uma marca no próprio serviço para o programa
+ainda o listar e o poder ligar outra vez. Os serviços da Microsoft e os do Windows ficam de fora.
+
 O impacto é estimado pela memória que o programa está a usar agora (o Gestor de Tarefas mede o
 tempo de arranque, que não se consegue ler de forma fiável), por isso só se conhece para os
 programas que estão em execução.
@@ -23,9 +28,12 @@ from pathlib import Path
 from caduceus.config import STARTUP_HIGH_IMPACT_MB, STARTUP_MEDIUM_IMPACT_MB
 from caduceus.maintenance.actions import Action, Outcome, Report
 from caduceus.maintenance.admin import is_admin
+from caduceus.maintenance.memory.executable_info import describe
 from caduceus.maintenance.memory.process_memory import memory_by_executable
 
 _BYTES_PER_MB = 1024 * 1024
+_SERVICES_HIVE = winreg.HKEY_LOCAL_MACHINE
+_SERVICES_KEY = r"SYSTEM\CurrentControlSet\Services"
 _RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 _RUN_KEY_32 = r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"
 _APPROVED_KEY = r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved"
@@ -35,6 +43,10 @@ _MACHINE_FOLDER = r"%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 # data em que se desligou, em 8 bytes (FILETIME)
 _ENABLED = b"\x02\x00\x00\x00" + bytes(8)
 _DISABLED_MARK = b"\x03\x00\x00\x00"
+_SERVICE_AUTOMATIC = 2
+_SERVICE_MANUAL = 3
+_SERVICE_PROCESS_TYPES = 0x10 | 0x20  # serviços que correm num processo (os restantes são drivers)
+_SERVICE_MARK = "CaduceusDisabledStartup"
 _WINDOWS_EPOCH_SECONDS = 11644473600
 _FILETIME_TICKS_PER_SECOND = 10_000_000
 _EXECUTABLE = re.compile(r"(.+?\.(?:exe|bat|cmd|com))(?=\s|$)", re.IGNORECASE)
@@ -49,12 +61,14 @@ class StartupSource(Enum):
     RUN_MACHINE_32 = "run_machine_32"
     FOLDER_USER = "folder_user"
     FOLDER_MACHINE = "folder_machine"
+    SERVICE = "service"
 
 
 _MACHINE_SOURCES = {
     StartupSource.RUN_MACHINE,
     StartupSource.RUN_MACHINE_32,
     StartupSource.FOLDER_MACHINE,
+    StartupSource.SERVICE,
 }
 # Onde cada fonte guarda a decisão de ligado/desligado: a chave raiz e o nome da subchave
 _APPROVED: dict[StartupSource, tuple[int, str]] = {
@@ -126,6 +140,60 @@ def impact_of(memory_bytes: int | None) -> str | None:
     return "low"
 
 
+def _readable_label(command: str, fallback: str) -> str:
+    """O nome legível do programa do comando, ou o nome técnico se o ficheiro não o traz."""
+    executable = executable_of(command)
+    if executable is None or os.path.basename(executable) == _SQUIRREL_UPDATER:
+        return fallback  # o Update.exe chama-se «Update» em todos os programas que o usam
+    return describe(executable).name or fallback if os.path.isfile(executable) else fallback
+
+
+def _service_values(name: str) -> dict[str, object]:
+    values: dict[str, object] = {}
+    try:
+        with winreg.OpenKey(_SERVICES_HIVE, rf"{_SERVICES_KEY}\{name}") as key:
+            for index in range(winreg.QueryInfoKey(key)[1]):
+                value_name, value, _kind = winreg.EnumValue(key, index)
+                values[value_name] = value
+    except OSError:
+        return {}
+    return values
+
+
+def _service_entry(name: str, running: dict[str, int]) -> StartupEntry | None:
+    values = _service_values(name)
+    start, kind = values.get("Start"), values.get("Type")
+    if not isinstance(kind, int) or not kind & _SERVICE_PROCESS_TYPES:
+        return None
+    if start != _SERVICE_AUTOMATIC and _SERVICE_MARK not in values:
+        return None
+    command = str(values.get("ImagePath", ""))
+    executable = executable_of(command)
+    windows_folder = os.path.normcase(os.path.expandvars("%WINDIR%")) + os.sep
+    if (
+        executable is None
+        or executable.startswith(windows_folder)
+        or not os.path.isfile(executable)
+    ):
+        return None  # os serviços do Windows (e os que se alojam no svchost) não se tocam
+    info = describe(executable)
+    if info.from_microsoft:
+        return None
+    display = str(values.get("DisplayName", ""))
+    label = display if display and not display.startswith("@") else info.name or name
+    return StartupEntry(name, label, command, StartupSource.SERVICE, memory_of(command, running))
+
+
+def _service_entries(running: dict[str, int]) -> list[StartupEntry]:
+    try:
+        with winreg.OpenKey(_SERVICES_HIVE, _SERVICES_KEY) as services:
+            names = [winreg.EnumKey(services, i) for i in range(winreg.QueryInfoKey(services)[0])]
+    except OSError:
+        return []
+    found = (_service_entry(name, running) for name in names)
+    return [entry for entry in found if entry is not None]
+
+
 def _run_entries(running: dict[str, int]) -> list[StartupEntry]:
     entries: list[StartupEntry] = []
     for source, hive, path in _RUN_KEYS:
@@ -134,8 +202,9 @@ def _run_entries(running: dict[str, int]) -> list[StartupEntry]:
                 for index in range(winreg.QueryInfoKey(key)[1]):
                     name, value, _kind = winreg.EnumValue(key, index)
                     command = str(value)
+                    label = _readable_label(command, name)
                     entries.append(
-                        StartupEntry(name, name, command, source, memory_of(command, running))
+                        StartupEntry(name, label, command, source, memory_of(command, running))
                     )
         except OSError:
             continue  # a chave não existe, ou não se pode ler: não há programas deste tipo
@@ -152,8 +221,9 @@ def _folder_entries(running: dict[str, int]) -> list[StartupEntry]:
         for file in files:
             if file.is_file() and file.name.lower() != "desktop.ini":
                 command = str(file)
+                label = _readable_label(command, file.stem)
                 entries.append(
-                    StartupEntry(file.name, file.stem, command, source, memory_of(command, running))
+                    StartupEntry(file.name, label, command, source, memory_of(command, running))
                 )
     return entries
 
@@ -161,7 +231,7 @@ def _folder_entries(running: dict[str, int]) -> list[StartupEntry]:
 def list_startup_entries() -> list[StartupEntry]:
     """Os programas de arranque, do que mais memória usa ao que menos (os que não correm no fim)."""
     running = memory_by_executable()
-    entries = _run_entries(running) + _folder_entries(running)
+    entries = _run_entries(running) + _folder_entries(running) + _service_entries(running)
     return sorted(entries, key=lambda entry: -(entry.memory_bytes or -1))
 
 
@@ -169,7 +239,17 @@ def parse_enabled(data: bytes) -> bool:
     return not data or data[0] % 2 == 0
 
 
+def _service_key_path(entry: StartupEntry) -> str:
+    return rf"{_SERVICES_KEY}\{entry.name}"
+
+
 def is_enabled(entry: StartupEntry) -> bool:
+    if entry.source is StartupSource.SERVICE:
+        try:
+            with winreg.OpenKey(_SERVICES_HIVE, _service_key_path(entry)) as key:
+                return bool(winreg.QueryValueEx(key, "Start")[0] == _SERVICE_AUTOMATIC)
+        except OSError:
+            return False
     hive, path = _APPROVED[entry.source]
     try:
         with winreg.OpenKey(hive, path) as key:
@@ -184,7 +264,24 @@ def _disabled_value(now_seconds: float) -> bytes:
     return _DISABLED_MARK + ticks.to_bytes(8, "little")
 
 
+def _set_service_enabled(entry: StartupEntry, enabled: bool) -> None:
+    path = _service_key_path(entry)
+    with winreg.OpenKey(_SERVICES_HIVE, path, 0, winreg.KEY_SET_VALUE) as key:
+        start = _SERVICE_AUTOMATIC if enabled else _SERVICE_MANUAL
+        winreg.SetValueEx(key, "Start", 0, winreg.REG_DWORD, start)
+        if enabled:
+            try:
+                winreg.DeleteValue(key, _SERVICE_MARK)
+            except FileNotFoundError:
+                pass  # o serviço nunca foi desligado por aqui
+        else:
+            winreg.SetValueEx(key, _SERVICE_MARK, 0, winreg.REG_DWORD, 1)
+
+
 def set_enabled(entry: StartupEntry, enabled: bool, now_seconds: float) -> None:
+    if entry.source is StartupSource.SERVICE:
+        _set_service_enabled(entry, enabled)
+        return
     hive, path = _APPROVED[entry.source]
     value = _ENABLED if enabled else _disabled_value(now_seconds)
     with winreg.CreateKeyEx(hive, path, 0, winreg.KEY_SET_VALUE) as key:

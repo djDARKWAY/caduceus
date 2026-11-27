@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from caduceus.maintenance.memory import startup_programs
+from caduceus.maintenance.memory.executable_info import describe
 from caduceus.maintenance.memory.process_memory import memory_by_executable
 from caduceus.maintenance.memory.startup_programs import (
     StartupEntry,
@@ -25,17 +26,28 @@ from caduceus.maintenance.memory.startup_programs import (
 MB = 1024 * 1024
 
 
+def delete_tree(path: str) -> None:
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+            children = [winreg.EnumKey(key, i) for i in range(winreg.QueryInfoKey(key)[0])]
+    except OSError:
+        return  # a chave nunca chegou a existir
+    for child in children:
+        delete_tree(rf"{path}\{child}")
+    winreg.DeleteKey(winreg.HKEY_CURRENT_USER, path)
+
+
 @pytest.fixture
 def test_key() -> Iterator[str]:
     """Uma chave só deste teste, no registo do utilizador, que se apaga no fim."""
     root = r"Software\CaduceusTests"
     path = rf"{root}\{uuid.uuid4().hex}"
     yield path
-    for key in (path + r"\Run", path + r"\Approved", path, root):
-        try:
-            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key)
-        except OSError:
-            pass  # só existe o que o teste criou, e a raiz só sai quando ficar vazia
+    delete_tree(path)
+    try:
+        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, root)
+    except OSError:
+        pass  # a raiz só sai quando ficar vazia
 
 
 @pytest.fixture
@@ -185,6 +197,7 @@ def test_startup_programs_come_from_the_run_keys_and_the_startup_folders_heavies
         ((StartupSource.RUN_USER, winreg.HKEY_CURRENT_USER, run_path),),
     )
     monkeypatch.setattr(startup_programs, "_FOLDERS", ((StartupSource.FOLDER_USER, str(folder)),))
+    monkeypatch.setattr(startup_programs, "_service_entries", lambda _running: [])
     monkeypatch.setattr(
         startup_programs,
         "memory_by_executable",
@@ -201,3 +214,103 @@ def test_startup_programs_come_from_the_run_keys_and_the_startup_folders_heavies
 
 def test_the_memory_of_the_running_programs_includes_this_one() -> None:
     assert os.path.normcase(sys.executable) in memory_by_executable()
+
+
+def add_service(
+    base: str,
+    name: str,
+    *,
+    start: int = 2,
+    kind: int = 0x10,
+    image: str | None = None,
+    **extra: int,
+) -> None:
+    path = rf"{base}\Services\{name}"
+    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE) as key:
+        winreg.SetValueEx(key, "Start", 0, winreg.REG_DWORD, start)
+        winreg.SetValueEx(key, "Type", 0, winreg.REG_DWORD, kind)
+        winreg.SetValueEx(key, "ImagePath", 0, winreg.REG_SZ, image or f'"{sys.executable}"')
+        for value_name, number in extra.items():
+            winreg.SetValueEx(key, value_name, 0, winreg.REG_DWORD, number)
+
+
+@pytest.fixture
+def sandboxed_services(test_key: str, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Só os serviços da chave de teste, sem programas de arranque nem processos reais."""
+    monkeypatch.setattr(startup_programs, "_SERVICES_HIVE", winreg.HKEY_CURRENT_USER)
+    monkeypatch.setattr(startup_programs, "_SERVICES_KEY", rf"{test_key}\Services")
+    monkeypatch.setattr(startup_programs, "_RUN_KEYS", ())
+    monkeypatch.setattr(startup_programs, "_FOLDERS", ())
+    monkeypatch.setattr(startup_programs, "memory_by_executable", dict)
+    return test_key
+
+
+def test_only_third_party_services_that_start_automatically_are_listed(
+    sandboxed_services: str,
+) -> None:
+    add_service(sandboxed_services, "Automatic")
+    add_service(sandboxed_services, "Manual", start=3)
+    add_service(sandboxed_services, "Driver", kind=0x1)
+    add_service(sandboxed_services, "OfWindows", image=r"C:\Windows\System32\cmd.exe")
+
+    entries = list_startup_entries()
+
+    assert [(entry.name, entry.source) for entry in entries] == [
+        ("Automatic", StartupSource.SERVICE)
+    ]
+    assert entries[0].needs_admin
+
+
+def test_a_service_switched_off_goes_to_manual_and_can_be_switched_on_again(
+    sandboxed_services: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    add_service(sandboxed_services, "Automatic", DelayedAutostart=1)
+    monkeypatch.setattr(startup_programs, "is_admin", lambda: True)
+    service = list_startup_entries()[0]
+    path = rf"{sandboxed_services}\Services\Automatic"
+
+    toggle_startup(service)(lambda _: None)
+    still_listed = [entry.name for entry in list_startup_entries()]
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+        start = winreg.QueryValueEx(key, "Start")[0]
+        delayed = winreg.QueryValueEx(key, "DelayedAutostart")[0]
+
+    assert not is_enabled(service)
+    assert (start, delayed) == (3, 1)
+    assert still_listed == ["Automatic"]
+
+    toggle_startup(service)(lambda _: None)
+
+    assert is_enabled(service)
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+        assert winreg.QueryValueEx(key, "Start")[0] == 2
+        with pytest.raises(FileNotFoundError):
+            winreg.QueryValueEx(key, "CaduceusDisabledStartup")
+
+
+def test_a_program_is_shown_by_the_name_in_its_file_properties() -> None:
+    command = f'"{sys.executable}" --minimized'
+
+    assert startup_programs._readable_label(command, "technical_name") != "technical_name"
+    assert startup_programs._readable_label("not a program", "technical_name") == "technical_name"
+
+
+def test_the_squirrel_updater_keeps_the_technical_name_because_every_app_calls_it_update() -> None:
+    command = r'"C:\Users\me\AppData\Local\Discord\Update.exe" --processStart Discord.exe'
+
+    assert startup_programs._readable_label(command, "Discord") == "Discord"
+
+
+def test_a_file_without_properties_has_no_readable_name(tmp_path: Path) -> None:
+    empty = tmp_path / "empty.exe"
+    empty.write_bytes(b"")
+
+    assert describe(str(empty)).name is None
+    assert describe(str(tmp_path / "missing.exe")).name is None
+
+
+def test_microsoft_files_are_recognised_by_their_manufacturer() -> None:
+    windows_tool = os.path.expandvars(r"%WINDIR%\System32\cmd.exe")
+
+    assert describe(windows_tool).from_microsoft
+    assert not describe(sys.executable).from_microsoft
