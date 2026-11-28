@@ -34,7 +34,6 @@ from caduceus.maintenance.free_space.hibernation import (
     turn_off_hibernation,
     turn_on_hibernation,
 )
-from caduceus.maintenance.free_space.hidden_junk import clean_hidden_junk, estimate_hidden_junk
 from caduceus.maintenance.free_space.icon_cache import clean_icon_cache, estimate_icon_cache
 from caduceus.maintenance.free_space.install_leftovers import (
     clean_install_leftovers,
@@ -89,12 +88,6 @@ CLEANUP_MENU = Menu(
             description_key="cleanup.temp_files.description",
             admin=AdminNeed.SOME,
             estimate=estimate_temp_files,
-        ),
-        MenuItem(
-            "cleanup.hidden_junk",
-            action=clean_hidden_junk,
-            description_key="cleanup.hidden_junk.description",
-            estimate=estimate_hidden_junk,
         ),
         MenuItem(
             "cleanup.windows_logs",
@@ -174,7 +167,7 @@ CLEANUP_MENU = Menu(
             "cleanup.crash_dumps",
             action=clean_crash_dumps,
             description_key="cleanup.crash_dumps.description",
-            admin=AdminNeed.ALL,
+            admin=AdminNeed.SOME,
             estimate=estimate_crash_dumps,
         ),
         MenuItem(

@@ -8,7 +8,6 @@ import pytest
 from caduceus.maintenance.free_space import (
     cleaner,
     crash_dumps,
-    hidden_junk,
     icon_cache,
     install_leftovers,
     recent_history,
@@ -89,7 +88,6 @@ def test_system_cache_estimate_includes_delivery_optimization_and_old_wer_report
     for file in (delivery, archive, queue, old_temp):
         os.utime(file, (old, old))
 
-    assert hidden_junk.estimate_hidden_junk() == 0
     assert system_caches.estimate_system_caches() == 16
     outcome = system_caches.clean_system_caches(lambda _: None)
 
@@ -101,20 +99,24 @@ def test_system_cache_estimate_includes_delivery_optimization_and_old_wer_report
 def test_system_crash_dumps_are_left_alone_without_administrator(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("WINDIR", str(tmp_path))
+    monkeypatch.setenv("WINDIR", str(tmp_path / "windows"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
     monkeypatch.setattr(cleaner, "is_admin", lambda: False)
-    dump = make_file(tmp_path, "MEMORY.DMP")
+    dump = make_file(tmp_path, r"windows\MEMORY.DMP")
+    app_dump = make_file(tmp_path, r"userCrashDumpspp.dmp")
 
     outcome = crash_dumps.clean_crash_dumps(lambda _: None)
 
     assert outcome.admin_required
     assert dump.exists()
+    assert not app_dump.exists()  # os despejos das aplicações não exigem administrador
 
 
 def test_system_crash_dumps_are_estimated_and_removed_without_touching_other_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("WINDIR", str(tmp_path))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
     monkeypatch.setattr(cleaner, "is_admin", lambda: True)
     full = make_file(tmp_path, "MEMORY.DMP")
     mini = make_file(tmp_path, r"Minidump\crash.dmp")

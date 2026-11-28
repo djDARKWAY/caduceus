@@ -2,13 +2,15 @@
 Apagar os despejos de falhas do sistema
 
 Apaga a imagem de memória completa, os minidespejos e os despejos de falhas de controladores
-e de hardware. Deixa os despejos das aplicações para a limpeza de lixo escondido.
+e de hardware (exigem administrador), e os despejos de falhas das aplicações na pasta do
+utilizador (não exigem).
 """
 
 from caduceus.maintenance.actions import Outcome, Report
 from caduceus.maintenance.free_space.cleaner import Location, clean_locations, estimate_locations
 
 LOCATIONS = (
+    Location(r"%LOCALAPPDATA%\CrashDumps", "category.crash_dumps"),
     Location(
         "%WINDIR%", "category.memory_dumps", "MEMORY.DMP", 0, needs_admin=True, files_only=True
     ),
