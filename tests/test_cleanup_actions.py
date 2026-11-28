@@ -103,7 +103,9 @@ def test_system_crash_dumps_are_left_alone_without_administrator(
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
     monkeypatch.setattr(cleaner, "is_admin", lambda: False)
     dump = make_file(tmp_path, r"windows\MEMORY.DMP")
-    app_dump = make_file(tmp_path, r"userCrashDumpspp.dmp")
+    app_dump = make_file(tmp_path, r"user\CrashDumps\app.dmp")
+    old = time.time() - 2 * 3600  # o motor deixa em paz o que tem menos de 1 hora
+    os.utime(app_dump, (old, old))
 
     outcome = crash_dumps.clean_crash_dumps(lambda _: None)
 
