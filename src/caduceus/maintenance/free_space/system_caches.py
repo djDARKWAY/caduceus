@@ -3,7 +3,9 @@ Limpar as caches do sistema
 
 Apaga as transferências do Windows Update e da Otimização da Entrega, os relatórios de erros
 antigos e as caches do Windows e de shaders. Limpa ainda os restos de instaladores de drivers
-da NVIDIA e da AMD. O Windows e os jogos voltam a criar as caches quando precisam.
+da NVIDIA e da AMD. Apaga também os registos e a cache de análises do Windows Defender (sem tocar
+na quarentena) e a cache de tipos de letra do Windows. O Windows, o Defender e os jogos voltam a
+criar as caches quando precisam.
 """
 
 from caduceus.config import LOG_MIN_AGE_HOURS
@@ -12,6 +14,7 @@ from caduceus.maintenance.free_space.cleaner import Location, clean_locations, e
 
 _PACKAGES = r"%LOCALAPPDATA%\Packages"
 _DRIVERS = "category.driver_installers"
+_DEFENDER = r"%PROGRAMDATA%\Microsoft\Windows Defender"
 LOCATIONS = (
     Location(
         r"%WINDIR%\SoftwareDistribution\Download",
@@ -52,6 +55,16 @@ LOCATIONS = (
     Location(
         r"%PROGRAMDATA%\NVIDIA Corporation\Downloader",
         _DRIVERS,
+        needs_admin=True,
+    ),
+    Location(_DEFENDER + r"\Support", "category.defender_cache", needs_admin=True),
+    Location(
+        _DEFENDER + r"\Scans\History\CacheManager", "category.defender_cache", needs_admin=True
+    ),
+    # O Windows reconstrói a cache de tipos de letra, e o que o serviço tem em uso fica de fora
+    Location(
+        r"%WINDIR%\ServiceProfiles\LocalService\AppData\Local\FontCache",
+        "category.font_cache",
         needs_admin=True,
     ),
 )

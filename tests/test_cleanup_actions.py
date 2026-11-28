@@ -5,13 +5,15 @@ from pathlib import Path
 
 import pytest
 
+from caduceus.maintenance.actions import Outcome, Report, Row
 from caduceus.maintenance.free_space import (
     cleaner,
-    crash_dumps,
     icon_cache,
     install_leftovers,
+    previous_windows,
     recent_history,
     system_caches,
+    temp_and_logs,
 )
 
 
@@ -101,13 +103,14 @@ def test_system_crash_dumps_are_left_alone_without_administrator(
 ) -> None:
     monkeypatch.setenv("WINDIR", str(tmp_path / "windows"))
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
+    monkeypatch.setenv("TEMP", str(tmp_path / "temp"))
     monkeypatch.setattr(cleaner, "is_admin", lambda: False)
     dump = make_file(tmp_path, r"windows\MEMORY.DMP")
     app_dump = make_file(tmp_path, r"user\CrashDumps\app.dmp")
     old = time.time() - 2 * 3600  # o motor deixa em paz o que tem menos de 1 hora
     os.utime(app_dump, (old, old))
 
-    outcome = crash_dumps.clean_crash_dumps(lambda _: None)
+    outcome = temp_and_logs.clean_temp_and_logs(lambda _: None)
 
     assert outcome.admin_required
     assert dump.exists()
@@ -119,18 +122,112 @@ def test_system_crash_dumps_are_estimated_and_removed_without_touching_other_fil
 ) -> None:
     monkeypatch.setenv("WINDIR", str(tmp_path))
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
+    monkeypatch.setenv("TEMP", str(tmp_path / "temp"))
     monkeypatch.setattr(cleaner, "is_admin", lambda: True)
     full = make_file(tmp_path, "MEMORY.DMP")
     mini = make_file(tmp_path, r"Minidump\crash.dmp")
     kernel = make_file(tmp_path, r"LiveKernelReports\WATCHDOG\crash.dmp")
     other = make_file(tmp_path, "unrelated.dmp")
 
-    assert crash_dumps.estimate_crash_dumps() == 12
-    outcome = crash_dumps.clean_crash_dumps(lambda _: None)
+    assert temp_and_logs.estimate_temp_and_logs() == 12
+    outcome = temp_and_logs.clean_temp_and_logs(lambda _: None)
 
     assert (outcome.items, outcome.bytes_freed) == (3, 12)
     assert not any(file.exists() for file in (full, mini, kernel))
     assert other.exists()
+
+
+def test_temporary_files_and_logs_are_cleaned_in_one_go_each_by_its_own_age(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("WINDIR", str(tmp_path / "windows"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
+    monkeypatch.setenv("TEMP", str(tmp_path / "temp"))
+    monkeypatch.setattr(cleaner, "is_admin", lambda: True)
+    old_temp = make_file(tmp_path, r"temp\old.tmp")
+    fresh_temp = make_file(tmp_path, r"temp\fresh.tmp")
+    day_old_log = make_file(tmp_path, r"windows\Logs\CBS\today.log")
+    old_log = make_file(tmp_path, r"windows\Logs\CBS\old.log")
+    now = time.time()
+    for file, age_hours in ((old_temp, 2), (day_old_log, 2), (old_log, 48)):
+        os.utime(file, (now - age_hours * 3600, now - age_hours * 3600))
+
+    outcome = temp_and_logs.clean_temp_and_logs(lambda _: None)
+
+    assert not old_temp.exists() and not old_log.exists()
+    assert fresh_temp.exists()  # menos de 1 hora
+    assert day_old_log.exists()  # menos de 24 horas: ainda serve para diagnosticar
+    assert {row.label_key for row in outcome.rows if row.items} == {
+        "category.user_temp",
+        "category.windows_logs",
+    }
+
+
+def test_system_caches_also_clean_the_defender_and_font_caches_but_never_the_quarantine(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    windows, user, machine = (tmp_path / name for name in ("Windows", "Local", "ProgramData"))
+    monkeypatch.setenv("WINDIR", str(windows))
+    monkeypatch.setenv("LOCALAPPDATA", str(user))
+    monkeypatch.setenv("PROGRAMDATA", str(machine))
+    monkeypatch.setenv("SystemDrive", str(tmp_path))
+    monkeypatch.setattr(cleaner, "is_admin", lambda: True)
+    support = make_file(machine, r"Microsoft\Windows Defender\Support\MPLog.log")
+    history = make_file(machine, r"Microsoft\Windows Defender\Scans\History\CacheManager\c.bin")
+    fonts = make_file(windows, r"ServiceProfiles\LocalService\AppData\Local\FontCache\f.dat")
+    quarantine = make_file(machine, r"Microsoft\Windows Defender\Quarantine\q.bin")
+    old = time.time() - 2 * 3600
+    for file in (support, history, fonts, quarantine):
+        os.utime(file, (old, old))
+
+    outcome = system_caches.clean_system_caches(lambda _: None)
+
+    assert not any(file.exists() for file in (support, history, fonts))
+    assert quarantine.exists()
+    assert {row.label_key for row in outcome.rows if row.items} == {
+        "category.defender_cache",
+        "category.font_cache",
+    }
+
+
+def test_previous_windows_cleanup_runs_both_cleanups_and_adds_up_their_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    leftovers = Outcome(2, 8, rows=(Row("category.leftovers", 2, 8),))
+    old = Outcome(0, 100, rows=(Row("category.windows_old", None, 100),), failures=("old",))
+    monkeypatch.setattr(previous_windows, "clean_install_leftovers", lambda _report: leftovers)
+    monkeypatch.setattr(previous_windows, "clean_windows_old", lambda _report: old)
+
+    outcome = previous_windows.clean_previous_windows(lambda _: None)
+
+    assert (outcome.items, outcome.bytes_freed, outcome.failures) == (2, 108, ("old",))
+    assert [row.label_key for row in outcome.rows] == ["category.windows_old", "category.leftovers"]
+
+
+def test_previous_windows_cleanup_deletes_nothing_while_windows_setup_is_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    running = Outcome(0, 0, failures=("setup",), notice="cleanup.install_leftovers.setup_running")
+
+    def windows_old_must_not_run(_report: Report) -> Outcome:
+        raise AssertionError("o Windows.old não devia ser limpo com o Setup a decorrer")
+
+    monkeypatch.setattr(previous_windows, "clean_install_leftovers", lambda _report: running)
+    monkeypatch.setattr(previous_windows, "clean_windows_old", windows_old_must_not_run)
+
+    assert previous_windows.clean_previous_windows(lambda _: None) is running
+
+
+@pytest.mark.parametrize(
+    ("old", "leftovers", "expected"), [(5, 3, 8), (None, 3, None), (5, None, None), (0, 0, 0)]
+)
+def test_previous_windows_estimate_adds_both_and_is_unknown_if_either_is(
+    monkeypatch: pytest.MonkeyPatch, old: int | None, leftovers: int | None, expected: int | None
+) -> None:
+    monkeypatch.setattr(previous_windows, "estimate_windows_old", lambda: old)
+    monkeypatch.setattr(previous_windows, "estimate_install_leftovers", lambda: leftovers)
+
+    assert previous_windows.estimate_previous_windows() == expected
 
 
 def test_old_setup_cleanup_only_deletes_the_two_named_system_drive_folders(

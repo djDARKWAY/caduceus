@@ -19,14 +19,14 @@ from caduceus.controllers.navigation import (
     press,
 )
 from caduceus.maintenance.actions import Action, Outcome, Report
+from caduceus.maintenance.free_space.previous_windows import clean_previous_windows
 from caduceus.maintenance.free_space.recycle_bin import empty_recycle_bin
-from caduceus.maintenance.free_space.temp_files import clean_temp_files
-from caduceus.maintenance.free_space.windows_old import clean_windows_old
+from caduceus.maintenance.free_space.temp_and_logs import clean_temp_and_logs
 from caduceus.settings import Settings
 
 SCAN, MAINTENANCE, _SETTINGS, EXIT = range(4)
 WINDOWS_OLD_OPTION = next(
-    index for index, item in enumerate(CLEANUP_MENU.items) if item.action is clean_windows_old
+    index for index, item in enumerate(CLEANUP_MENU.items) if item.action is clean_previous_windows
 )
 RECYCLE_BIN_OPTION = next(
     index for index, item in enumerate(CLEANUP_MENU.items) if item.action is empty_recycle_bin
@@ -95,7 +95,7 @@ def test_option_without_a_screen_shows_a_notice_that_only_backspace_closes() -> 
 
 
 def test_enter_on_an_action_starts_it_straight_away() -> None:
-    assert open_temp_files_action().running is clean_temp_files
+    assert open_temp_files_action().running is clean_temp_and_logs
 
 
 def test_a_finished_action_shows_its_outcome_until_enter_is_pressed() -> None:
@@ -147,7 +147,7 @@ def test_enter_confirms_and_runs_the_action() -> None:
     navigation = press(open_windows_old_confirmation(), Key.ENTER)
 
     assert not navigation.confirming
-    assert navigation.running is clean_windows_old
+    assert navigation.running is clean_previous_windows
 
 
 def test_backspace_cancels_the_confirmation_without_running_anything() -> None:
@@ -278,7 +278,7 @@ def test_finishing_a_new_estimate_keeps_the_others() -> None:
 def test_after_an_action_only_its_own_estimate_is_calculated_again() -> None:
     finished = complete(open_temp_files_action(), Outcome(items=2, bytes_freed=100))
 
-    assert press(finished, Key.ENTER).to_estimate == ("cleanup.temp_files",)
+    assert press(finished, Key.ENTER).to_estimate == ("cleanup.temp_and_logs",)
 
 
 def open_run_all(safe_mode: bool) -> Navigation:
@@ -311,19 +311,19 @@ def test_confirming_run_all_starts_one_combined_action() -> None:
 @pytest.mark.parametrize(
     ("batch", "safe_mode", "expected"),
     [
-        ("cleanup.fast", False, {"cleanup.crash_dumps", "cleanup.recent_history"}),
+        ("cleanup.fast", False, {"cleanup.temp_and_logs", "cleanup.recent_history"}),
         (
             "cleanup.all",
             True,
-            {"cleanup.icon_cache", "cleanup.crash_dumps", "cleanup.recent_history"},
+            {"cleanup.icon_cache", "cleanup.temp_and_logs", "cleanup.recent_history"},
         ),
         (
             "cleanup.all",
             False,
             {
                 "cleanup.icon_cache",
-                "cleanup.install_leftovers",
-                "cleanup.crash_dumps",
+                "cleanup.previous_windows",
+                "cleanup.temp_and_logs",
                 "cleanup.recent_history",
             },
         ),
@@ -334,8 +334,8 @@ def test_cleanup_batches_include_the_new_actions_allowed_in_each_mode(
 ) -> None:
     added = {
         "cleanup.icon_cache",
-        "cleanup.install_leftovers",
-        "cleanup.crash_dumps",
+        "cleanup.previous_windows",
+        "cleanup.temp_and_logs",
         "cleanup.recent_history",
     }
 

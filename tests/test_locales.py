@@ -85,6 +85,9 @@ def test_every_text_the_screens_use_exists(language: str) -> None:
     used |= {
         "cleanup.components.step",
         "cleanup.windows_old.step",
+        "cleanup.install_leftovers.result",
+        "cleanup.install_leftovers.setup_running",
+        "cleanup.crash_dumps.live_kernel",
         "cleanup.restore_points.step",
         "cleanup.hibernation.step",
     }

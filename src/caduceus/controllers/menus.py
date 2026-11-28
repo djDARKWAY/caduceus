@@ -15,7 +15,6 @@ from caduceus.maintenance.free_space.browser_caches import (
     estimate_browser_caches,
 )
 from caduceus.maintenance.free_space.components import clean_components
-from caduceus.maintenance.free_space.crash_dumps import clean_crash_dumps, estimate_crash_dumps
 from caduceus.maintenance.free_space.developer_caches import (
     clean_developer_caches,
     estimate_developer_caches,
@@ -26,9 +25,9 @@ from caduceus.maintenance.free_space.hibernation import (
     turn_on_hibernation,
 )
 from caduceus.maintenance.free_space.icon_cache import clean_icon_cache, estimate_icon_cache
-from caduceus.maintenance.free_space.install_leftovers import (
-    clean_install_leftovers,
-    estimate_install_leftovers,
+from caduceus.maintenance.free_space.previous_windows import (
+    clean_previous_windows,
+    estimate_previous_windows,
 )
 from caduceus.maintenance.free_space.recent_history import clear_recent_history
 from caduceus.maintenance.free_space.recycle_bin import empty_recycle_bin, estimate_recycle_bin
@@ -37,9 +36,10 @@ from caduceus.maintenance.free_space.system_caches import (
     clean_system_caches,
     estimate_system_caches,
 )
-from caduceus.maintenance.free_space.temp_files import clean_temp_files, estimate_temp_files
-from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, estimate_windows_logs
-from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
+from caduceus.maintenance.free_space.temp_and_logs import (
+    clean_temp_and_logs,
+    estimate_temp_and_logs,
+)
 from caduceus.maintenance.performance.free_standby import free_standby_memory
 from caduceus.maintenance.performance.power_plan import (
     active_plan,
@@ -74,18 +74,11 @@ CLEANUP_MENU = Menu(
     "cleanup.title",
     (
         MenuItem(
-            "cleanup.temp_files",
-            action=clean_temp_files,
-            description_key="cleanup.temp_files.description",
+            "cleanup.temp_and_logs",
+            action=clean_temp_and_logs,
+            description_key="cleanup.temp_and_logs.description",
             admin=AdminNeed.SOME,
-            estimate=estimate_temp_files,
-        ),
-        MenuItem(
-            "cleanup.windows_logs",
-            action=clean_windows_logs,
-            description_key="cleanup.windows_logs.description",
-            admin=AdminNeed.ALL,
-            estimate=estimate_windows_logs,
+            estimate=estimate_temp_and_logs,
         ),
         MenuItem(
             "cleanup.system_caches",
@@ -135,31 +128,14 @@ CLEANUP_MENU = Menu(
             confirm_key="cleanup.restore_points.confirm",
         ),
         MenuItem(
-            "cleanup.windows_old",
-            action=clean_windows_old,
-            description_key="cleanup.windows_old.description",
+            "cleanup.previous_windows",
+            action=clean_previous_windows,
+            description_key="cleanup.previous_windows.description",
             admin=AdminNeed.ALL,
             risky=True,
-            confirm_key="cleanup.windows_old.confirm",
-            estimate=estimate_windows_old,
+            confirm_key="cleanup.previous_windows.confirm",
+            estimate=estimate_previous_windows,
             slow=True,
-        ),
-        MenuItem(
-            "cleanup.install_leftovers",
-            action=clean_install_leftovers,
-            description_key="cleanup.install_leftovers.description",
-            admin=AdminNeed.ALL,
-            risky=True,
-            confirm_key="cleanup.install_leftovers.confirm",
-            estimate=estimate_install_leftovers,
-            slow=True,
-        ),
-        MenuItem(
-            "cleanup.crash_dumps",
-            action=clean_crash_dumps,
-            description_key="cleanup.crash_dumps.description",
-            admin=AdminNeed.SOME,
-            estimate=estimate_crash_dumps,
         ),
         MenuItem(
             "cleanup.recent_history",
