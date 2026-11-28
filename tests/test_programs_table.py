@@ -7,7 +7,7 @@ import pytest
 from caduceus.controllers import tables
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menu_model import Menu, MenuItem
-from caduceus.controllers.menus import MAIN_MENU, MAINTENANCE_MENU
+from caduceus.controllers.menus import MAIN_MENU, MAINTENANCE_MENU, PROGRAMS_MENU
 from caduceus.controllers.navigation import (
     NOTHING_SELECTABLE_NOTICE,
     Navigation,
@@ -21,6 +21,7 @@ from caduceus.maintenance.apps.store_apps import StoreApp
 from caduceus.settings import Settings
 
 PROGRAMS_OPTION = 2  # a posição de «Programs» na Manutenção manual
+INSTALLED_OPTION = 1  # a posição de «Installed programs» no menu «Programs»
 POSSIBILITIES = ("programs.repair", "programs.reset", "programs.uninstall")
 TODO = StoreApp("Maker.Todo", "Maker.Todo_1.0_x64__abc", "1.0")
 
@@ -54,8 +55,11 @@ def options(item: MenuItem) -> dict[str, MenuItem]:
 
 
 def open_table(settings: Settings | None = None) -> Navigation:
-    maintenance = Navigation(menus=(MAIN_MENU, MAINTENANCE_MENU), selected=(1, PROGRAMS_OPTION))
-    return replace(press(maintenance, Key.ENTER), settings=settings or Settings(safe_mode=False))
+    programs = Navigation(
+        menus=(MAIN_MENU, MAINTENANCE_MENU, PROGRAMS_MENU),
+        selected=(1, PROGRAMS_OPTION, INSTALLED_OPTION),
+    )
+    return replace(press(programs, Key.ENTER), settings=settings or Settings(safe_mode=False))
 
 
 def test_programs_and_store_apps_share_one_table_by_name_with_their_version_and_size(

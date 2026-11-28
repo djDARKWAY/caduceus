@@ -2,7 +2,7 @@ r"""
 Limpar as caches dos navegadores
 
 Apaga as caches dos navegadores instalados (Chrome, Edge, Brave, Vivaldi, Opera, Opera GX e
-Firefox), de todos os perfis: a cache de páginas, a de código, a de gráficos e a dos service
+Firefox), de todos os perfis: a cache de páginas, a de código, as de gráficos e a dos service
 workers (`Service Worker\CacheStorage`). Só mexe nas pastas de cache: nunca em cookies,
 palavras-passe, histórico nem extensões. O que não está instalado é ignorado.
 """
@@ -18,8 +18,17 @@ from caduceus.maintenance.free_space.cleaner import (
 _CATEGORY = "category.browser_cache"
 _OPERA = r"%LOCALAPPDATA%\Opera Software\Opera Stable"
 _OPERA_GX = r"%LOCALAPPDATA%\Opera Software\Opera GX Stable"
-# Os shaders compilados ficam na raiz do navegador, ao lado dos perfis
-_SHADER_FOLDERS = ("GrShaderCache", "ShaderCache", "GraphiteDawnCache")
+# As caches gráficas (shaders e WebGPU) ficam na raiz do navegador, ao lado dos perfis, e o
+# navegador volta a criá-las. A `GraphiteDawnCache` e a `DawnGraphiteCache` são pastas distintas
+# (as versões recentes usam a segunda)
+_SHADER_FOLDERS = (
+    "GrShaderCache",
+    "ShaderCache",
+    "GraphiteDawnCache",
+    "DawnGraphiteCache",
+    "DawnWebGPUCache",
+    "GPUPersistentCache",
+)
 _CHROMIUM_ROOTS = (
     r"%LOCALAPPDATA%\Google\Chrome\User Data",
     r"%LOCALAPPDATA%\Microsoft\Edge\User Data",

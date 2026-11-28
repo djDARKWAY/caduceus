@@ -104,6 +104,7 @@ def test_system_crash_dumps_are_left_alone_without_administrator(
     monkeypatch.setenv("WINDIR", str(tmp_path / "windows"))
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
     monkeypatch.setenv("TEMP", str(tmp_path / "temp"))
+    monkeypatch.setenv("PROGRAMDATA", str(tmp_path / "programdata"))
     monkeypatch.setattr(cleaner, "is_admin", lambda: False)
     dump = make_file(tmp_path, r"windows\MEMORY.DMP")
     app_dump = make_file(tmp_path, r"user\CrashDumps\app.dmp")
@@ -123,6 +124,7 @@ def test_system_crash_dumps_are_estimated_and_removed_without_touching_other_fil
     monkeypatch.setenv("WINDIR", str(tmp_path))
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
     monkeypatch.setenv("TEMP", str(tmp_path / "temp"))
+    monkeypatch.setenv("PROGRAMDATA", str(tmp_path / "programdata"))
     monkeypatch.setattr(cleaner, "is_admin", lambda: True)
     full = make_file(tmp_path, "MEMORY.DMP")
     mini = make_file(tmp_path, r"Minidump\crash.dmp")
@@ -143,18 +145,29 @@ def test_temporary_files_and_logs_are_cleaned_in_one_go_each_by_its_own_age(
     monkeypatch.setenv("WINDIR", str(tmp_path / "windows"))
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "user"))
     monkeypatch.setenv("TEMP", str(tmp_path / "temp"))
+    monkeypatch.setenv("PROGRAMDATA", str(tmp_path / "programdata"))
     monkeypatch.setattr(cleaner, "is_admin", lambda: True)
     old_temp = make_file(tmp_path, r"temp\old.tmp")
     fresh_temp = make_file(tmp_path, r"temp\fresh.tmp")
     day_old_log = make_file(tmp_path, r"windows\Logs\CBS\today.log")
+    orchestrator = make_file(tmp_path, r"programdata\USOShared\Logs\System\old.etl")
+    other_orchestrator_file = make_file(tmp_path, r"programdata\USOShared\Logs\System\keep.txt")
     old_log = make_file(tmp_path, r"windows\Logs\CBS\old.log")
     now = time.time()
-    for file, age_hours in ((old_temp, 2), (day_old_log, 2), (old_log, 48)):
+    for file, age_hours in (
+        (old_temp, 2),
+        (day_old_log, 2),
+        (old_log, 48),
+        (orchestrator, 48),
+        (other_orchestrator_file, 48),
+    ):
         os.utime(file, (now - age_hours * 3600, now - age_hours * 3600))
 
     outcome = temp_and_logs.clean_temp_and_logs(lambda _: None)
 
     assert not old_temp.exists() and not old_log.exists()
+    assert not orchestrator.exists()  # os .etl do Windows Update, com mais de 24 horas
+    assert other_orchestrator_file.exists()  # só os .etl
     assert fresh_temp.exists()  # menos de 1 hora
     assert day_old_log.exists()  # menos de 24 horas: ainda serve para diagnosticar
     assert {row.label_key for row in outcome.rows if row.items} == {

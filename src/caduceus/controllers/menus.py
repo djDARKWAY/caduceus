@@ -238,6 +238,22 @@ PERFORMANCE_MENU = Menu(
 )
 
 
+PROGRAMS_MENU = Menu(
+    "programs.menu.title",
+    (
+        MenuItem(
+            "programs.updates",
+            submenu_loader=updates_menu,
+            description_key="programs.updates.description",
+        ),
+        MenuItem(
+            "programs.installed",
+            submenu_loader=programs_menu,
+            description_key="programs.installed.description",
+        ),
+    ),
+)
+
 MAINTENANCE_MENU = Menu(
     "maintenance.title",
     (
@@ -253,13 +269,8 @@ MAINTENANCE_MENU = Menu(
         ),
         MenuItem(
             "maintenance.programs",
-            submenu_loader=programs_menu,
+            PROGRAMS_MENU,
             description_key="maintenance.programs.description",
-        ),
-        MenuItem(
-            "maintenance.updates",
-            submenu_loader=updates_menu,
-            description_key="maintenance.updates.description",
         ),
     ),
 )

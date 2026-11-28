@@ -4,13 +4,14 @@ import pytest
 
 from caduceus.controllers import tables
 from caduceus.controllers.keys import Key
-from caduceus.controllers.menus import MAIN_MENU, MAINTENANCE_MENU
+from caduceus.controllers.menus import MAIN_MENU, MAINTENANCE_MENU, PROGRAMS_MENU
 from caduceus.controllers.navigation import Navigation, complete, press
 from caduceus.controllers.tables import updates_menu
 from caduceus.maintenance.actions import Outcome
 from caduceus.maintenance.apps.winget_upgrades import UpgradableApp
 
-UPDATES_OPTION = 3  # a posição de «Updates» na Manutenção manual
+PROGRAMS_OPTION = 2  # a posição de «Programs» na Manutenção manual
+UPDATES_OPTION = 0  # a posição de «Updates» no menu «Programs»
 
 
 @pytest.fixture
@@ -65,8 +66,11 @@ def test_after_updating_an_app_the_table_is_created_again_without_it(
 ) -> None:
     pending = [app("Alpha"), app("Beta")]
     winget(pending)
-    maintenance = Navigation(menus=(MAIN_MENU, MAINTENANCE_MENU), selected=(1, UPDATES_OPTION))
-    on_alpha = press(maintenance, Key.ENTER)
+    programs = Navigation(
+        menus=(MAIN_MENU, MAINTENANCE_MENU, PROGRAMS_MENU),
+        selected=(1, PROGRAMS_OPTION, UPDATES_OPTION),
+    )
+    on_alpha = press(programs, Key.ENTER)
     assert on_alpha.menu.title_key == "updates.title" and on_alpha.item.label == "Alpha"
 
     running = press(on_alpha, Key.ENTER)
