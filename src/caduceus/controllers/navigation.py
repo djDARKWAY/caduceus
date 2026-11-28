@@ -3,16 +3,18 @@ Navegação
 
 Lógica pura da navegação nos menus: dado o estado e uma tecla, devolve o novo estado. Um menu com
 estimativas (o da limpeza) calcula-as ao abrir e, depois de cada ação, só a dessa ação. Uma opção
-bloqueada pelo Modo seguro, ou que exige um administrador que não há, não se pode selecionar: o
-cursor salta-a. Com o resultado de uma ação no ecrã, só o ENTER faz alguma coisa (volta ao menu);
-com um pedido de confirmação, só o ENTER (confirma) e o BACKSPACE (cancela); com um aviso, só o
-BACKSPACE (volta). Depois de uma ação que muda a lista (desinstalar um programa), a lista volta a
-criar-se quando o utilizador sai do resultado ou do aviso. Nas tabelas, as teclas 1 a N (as colunas)
+bloqueada pelo Modo seguro, que exige um administrador que não há ou que não se aplica ao que o
+menu descreve, não se pode selecionar: o cursor salta-a. Com o resultado de uma ação no ecrã, só o
+ENTER faz alguma coisa (volta ao menu); com um pedido de confirmação, só o ENTER (confirma) e o
+BACKSPACE (cancela); com um aviso, só o BACKSPACE (volta). Depois de uma ação que muda a lista
+(desinstalar um programa), a lista volta a criar-se quando o utilizador sai do resultado ou do
+aviso, mesmo que a ação esteja no submenu de uma linha da tabela (volta-se então à tabela, que
+mantém a ordenação de antes de se entrar na linha). Nas tabelas, as teclas 1 a N (as colunas)
 ordenam a coluna e, ao repetir, invertem a ordem: texto de A a Z, números por ordem crescente, e o
 que não tem valor fica no fim. A ordenação só muda a ordem em que as opções aparecem
-(`display_order`): o menu mantém a sua, que é a que «Correr todas as limpezas» segue. Não lê teclas,
-não desenha e não corre ações: quando uma opção tem ação, o estado fica com `running` e é a
-aplicação que a corre e depois chama `complete`.
+(`display_order`): o menu mantém a sua, que é a que «ALL CLEANUPS» segue. Não lê teclas, não
+desenha e não corre ações: quando uma opção tem ação, o estado fica com `running` e é a aplicação
+que a corre e depois chama `complete`.
 """
 
 from collections.abc import Mapping
@@ -52,6 +54,7 @@ class Navigation:
     closes_console: bool = False  # ao sair, fecha também a consola (ao reabrir como administrador)
     texts: Mapping[str, str] = field(default_factory=dict)  # para ordenar o texto que se vê
     sort: Sort | None = None  # a coluna ordenada do menu aberto, se houver
+    parent_sorts: tuple[Sort | None, ...] = ()  # a ordenação de cada menu por onde se entrou
 
     @property
     def estimating(self) -> bool:
@@ -146,6 +149,7 @@ def is_blocked(navigation: Navigation, item: MenuItem) -> bool:
         blocked_by_safe_mode(navigation, item)
         or blocked_by_missing_administrator(navigation, item)
         or blocked_by_present_administrator(navigation, item)
+        or item.unavailable
     )
 
 
@@ -227,6 +231,7 @@ def _enter(navigation: Navigation) -> Navigation:
             to_estimate=_estimable(submenu),
             estimates={},
             sort=None,
+            parent_sorts=(*navigation.parent_sorts, navigation.sort),
         )
     return replace(navigation, notice=NOT_AVAILABLE_NOTICE)
 
@@ -235,14 +240,27 @@ def _back(navigation: Navigation) -> Navigation:
     if len(navigation.menus) == 1:
         return navigation
     return replace(
-        navigation, menus=navigation.menus[:-1], selected=navigation.selected[:-1], sort=None
+        navigation,
+        menus=navigation.menus[:-1],
+        selected=navigation.selected[:-1],
+        sort=navigation.parent_sorts[-1] if navigation.parent_sorts else None,
+        parent_sorts=navigation.parent_sorts[:-1],
     )
 
 
+def _table_level(navigation: Navigation) -> int | None:
+    """O nível da tabela que a opção escolhida muda (a que se criou ao abrir): o do menu aberto, ou
+    o de cima, quando a opção está no submenu de uma linha da tabela."""
+    if not navigation.item.refreshes_menu:
+        return None
+    for level in range(len(navigation.menus) - 2, -1, -1):
+        if navigation.menus[level].items[navigation.selected[level]].submenu_loader is not None:
+            return level + 1
+    return None
+
+
 def _reloads_menu(navigation: Navigation) -> bool:
-    if not navigation.item.refreshes_menu or len(navigation.menus) < 2:
-        return False
-    return navigation.menus[-2].items[navigation.selected[-2]].submenu_loader is not None
+    return _table_level(navigation) is not None
 
 
 def loads_menu(navigation: Navigation, key: Key) -> bool:
@@ -261,10 +279,13 @@ def loads_menu(navigation: Navigation, key: Key) -> bool:
 def _reload(navigation: Navigation) -> Navigation:
     """Volta a criar a lista depois de uma ação que a muda, com o cursor na mesma posição da lista
     mostrada (e a mesma ordenação)."""
-    if not _reloads_menu(navigation):
+    table_level = _table_level(navigation)
+    if table_level is None:
         return navigation
+    while len(navigation.menus) > table_level + 1:
+        navigation = _back(navigation)  # sai do submenu da linha, de volta à tabela
     parent = navigation.menus[-2].items[navigation.selected[-2]]
-    assert parent.submenu_loader is not None  # garantido por `_reloads_menu`
+    assert parent.submenu_loader is not None  # garantido por `_table_level`
     position = display_order(navigation).index(navigation.index)
     reloaded = replace(navigation, menus=(*navigation.menus[:-1], parent.submenu_loader()))
     order = display_order(reloaded)

@@ -1,9 +1,9 @@
 """
-Reiniciar o Explorer
+Fechar e reabrir o Explorer
 
 Fecha a shell da sessão atual pelo comando «Sair do Explorer», para o Windows não a relançar
-antes de a cache de ícones poder ser limpa. Ao reiniciar apenas o Explorer, pode terminar o
-processo se a shell não responder. Volta a abrir o Explorer e espera pela barra de tarefas.
+antes de a cache de ícones poder ser limpa. Volta a abrir o Explorer e espera pela barra de
+tarefas. Usado pela limpeza da cache de ícones.
 """
 
 import ctypes
@@ -12,11 +12,9 @@ import time
 from ctypes import wintypes
 
 from caduceus.config import EXPLORER_EXE
-from caduceus.maintenance.actions import Outcome, Report, Step
 
 _EXIT_EXPLORER = 0x05B4  # mensagem usada por «Sair do Explorer» na barra de tarefas
 _SYNCHRONIZE = 0x00100000
-_PROCESS_TERMINATE = 0x0001
 _WAIT_SECONDS = 5
 
 _user32 = ctypes.WinDLL("user32")
@@ -39,14 +37,11 @@ _open_process.restype = wintypes.HANDLE
 _wait = _kernel32.WaitForSingleObject
 _wait.argtypes = [wintypes.HANDLE, wintypes.DWORD]
 _wait.restype = wintypes.DWORD
-_terminate = _kernel32.TerminateProcess
-_terminate.argtypes = [wintypes.HANDLE, wintypes.UINT]
-_terminate.restype = wintypes.BOOL
 _close_handle = _kernel32.CloseHandle
 _close_handle.argtypes = [wintypes.HANDLE]
 
 
-def stop_explorer(*, force_if_unresponsive: bool = False) -> bool:
+def stop_explorer() -> bool:
     """Devolve se a shell da sessão já fechou e deixou de manter ficheiros em uso."""
     tray = _find_window("Shell_TrayWnd", None)
     if not tray:
@@ -54,16 +49,13 @@ def stop_explorer(*, force_if_unresponsive: bool = False) -> bool:
     pid = wintypes.DWORD()
     if not _window_process(tray, ctypes.byref(pid)):
         return False
-    access = _SYNCHRONIZE | _PROCESS_TERMINATE if force_if_unresponsive else _SYNCHRONIZE
-    process = _open_process(access, False, pid.value)
+    process = _open_process(_SYNCHRONIZE, False, pid.value)
     if not process:
         return False
     try:
-        if _post_message(tray, _EXIT_EXPLORER, 0, 0) and _wait(process, _WAIT_SECONDS * 1000) == 0:
-            return True
-        if force_if_unresponsive and _terminate(process, 0):
-            return int(_wait(process, _WAIT_SECONDS * 1000)) == 0
-        return False
+        return bool(_post_message(tray, _EXIT_EXPLORER, 0, 0)) and (
+            _wait(process, _WAIT_SECONDS * 1000) == 0
+        )
     finally:
         _close_handle(process)
 
@@ -86,10 +78,3 @@ def start_explorer() -> bool:
             return True
         time.sleep(0.1)
     return False
-
-
-def restart_explorer(report: Report) -> Outcome:
-    report(Step("performance.restart_explorer.step", 0, 0))
-    if stop_explorer(force_if_unresponsive=True) and start_explorer():
-        return Outcome(0, 0)
-    return Outcome(0, 0, failures=(EXPLORER_EXE,))

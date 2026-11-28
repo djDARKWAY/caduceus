@@ -117,7 +117,7 @@ def update_apps(apps: Sequence[UpgradableApp]) -> Action:
                 winget,
                 [*_UPGRADE_ARGUMENTS, app.package_id],
                 report,
-                "apps.update.step",
+                "programs.update.step",
                 success_codes=(0, _NO_APPLICABLE_UPGRADE),
                 reports_percent=True,
                 values=values,

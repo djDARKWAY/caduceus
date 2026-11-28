@@ -7,17 +7,8 @@ menus que se criam ao abrir (as tabelas) estão em `tables.py`.
 """
 
 from caduceus.controllers.menu_model import AdminNeed, Menu, MenuItem
-from caduceus.controllers.tables import (
-    drives_menu,
-    programs_menu,
-    repair_store_menu,
-    reset_store_menu,
-    startup_menu,
-    tasks_menu,
-    update_menu,
-)
+from caduceus.controllers.tables import drives_menu, programs_menu, startup_menu, tasks_menu
 from caduceus.maintenance.admin import restart_as_administrator
-from caduceus.maintenance.apps.open_with import clean_open_with
 from caduceus.maintenance.free_space.app_caches import clean_app_caches, estimate_app_caches
 from caduceus.maintenance.free_space.browser_caches import (
     clean_browser_caches,
@@ -51,12 +42,12 @@ from caduceus.maintenance.free_space.windows_logs import clean_windows_logs, est
 from caduceus.maintenance.free_space.windows_old import clean_windows_old, estimate_windows_old
 from caduceus.maintenance.performance.free_standby import free_standby_memory
 from caduceus.maintenance.performance.power_plan import (
+    active_plan,
     balanced_is_active,
     high_performance_is_active,
     set_balanced,
     set_high_performance,
 )
-from caduceus.maintenance.performance.restart_explorer import restart_explorer
 
 HIBERNATION_MENU = Menu(
     "cleanup.hibernation.title",
@@ -244,13 +235,8 @@ PERFORMANCE_MENU = Menu(
         MenuItem(
             "performance.power_plan",
             POWER_PLAN_MENU,
+            value=active_plan,
             description_key="performance.power_plan.description",
-        ),
-        MenuItem(
-            "performance.restart_explorer",
-            action=restart_explorer,
-            description_key="performance.restart_explorer.description",
-            instant=True,
         ),
         MenuItem(
             "performance.free_standby",
@@ -270,38 +256,6 @@ PERFORMANCE_MENU = Menu(
 )
 
 
-APPS_MENU = Menu(
-    "apps.title",
-    (
-        MenuItem(
-            "apps.uninstall",
-            submenu_loader=programs_menu,
-            description_key="apps.uninstall.description",
-        ),
-        MenuItem(
-            "apps.update",
-            submenu_loader=update_menu,
-            description_key="apps.update.description",
-        ),
-        MenuItem(
-            "apps.repair",
-            submenu_loader=repair_store_menu,
-            description_key="apps.repair.description",
-        ),
-        MenuItem(
-            "apps.reset",
-            submenu_loader=reset_store_menu,
-            description_key="apps.reset.description",
-            risky=True,
-        ),
-        MenuItem(
-            "apps.open_with",
-            action=clean_open_with,
-            description_key="apps.open_with.description",
-        ),
-    ),
-)
-
 MAINTENANCE_MENU = Menu(
     "maintenance.title",
     (
@@ -316,9 +270,9 @@ MAINTENANCE_MENU = Menu(
             description_key="maintenance.performance.description",
         ),
         MenuItem(
-            "maintenance.apps",
-            APPS_MENU,
-            description_key="maintenance.apps.description",
+            "maintenance.programs",
+            submenu_loader=programs_menu,
+            description_key="maintenance.programs.description",
         ),
     ),
 )

@@ -245,7 +245,7 @@ def uninstall_program(program: InstalledProgram) -> Action:
         if command is None:
             return Outcome(0, 0, notice="notice.uninstaller_not_opened")
         free_before = free_bytes()
-        step = Step("apps.uninstall.step", 0, 0, {"name": program.name})
+        step = Step("programs.uninstall.step", 0, 0, {"name": program.name})
         report(step)
         error = _run_uninstaller(*command, report, step)
         if error == _ERROR_CANCELLED:
@@ -273,7 +273,7 @@ def _save_entry_backup(program: InstalledProgram, report: Report) -> bool:
         file.parent.mkdir(parents=True, exist_ok=True)
         key = f"{_HIVE_NAMES[program.hive]}\\{program.key_path}"
         return run_system_tool(
-            "reg.exe", ["export", key, str(file), "/y"], report, "apps.uninstall.backup.step"
+            "reg.exe", ["export", key, str(file), "/y"], report, "programs.uninstall.backup.step"
         )
     except OSError:
         return False

@@ -1,9 +1,9 @@
 """
 Plano de energia
 
-Lê o plano ativo pela API de energia do Windows e aplica os planos predefinidos com `powercfg`.
-Se não houver um plano de alto desempenho, tenta duplicar o modelo com um identificador fixo,
-para poder reutilizar a cópia das próximas vezes.
+Lê o plano ativo pela API de energia do Windows e aplica os planos predefinidos Equilibrado e Alto
+desempenho com `powercfg`. Se não houver um plano de alto desempenho, tenta duplicar o modelo com um
+identificador fixo, para poder reutilizar a cópia das próximas vezes.
 """
 
 import ctypes
@@ -64,6 +64,16 @@ def balanced_is_active() -> bool:
 
 def high_performance_is_active() -> bool:
     return _active_scheme() in (_HIGH, _HIGH_COPY)
+
+
+def active_plan() -> str:
+    """A chave do texto que diz qual é o plano ativo."""
+    scheme = _active_scheme()
+    if scheme == _BALANCED:
+        return "performance.power_plan.balanced"
+    if scheme in (_HIGH, _HIGH_COPY):
+        return "performance.power_plan.high"
+    return "performance.power_plan.other"
 
 
 def _activate(scheme: UUID, report: Report) -> bool:

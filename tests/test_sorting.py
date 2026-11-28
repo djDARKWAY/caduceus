@@ -14,14 +14,14 @@ from caduceus.controllers.navigation import (
 from caduceus.maintenance.actions import Outcome, Report
 
 MAINTENANCE = 1
-SIZE_COLUMNS = (("apps.uninstall.column.size", 9),)
+SIZE_COLUMNS = (("programs.column.size", 9),)
 
 
 def table(*rows: tuple[str, int | None]) -> Navigation:
     """Uma tabela com duas colunas, o nome e o tamanho (como a dos programas instalados)."""
     items = tuple(MenuItem(f"program:{name}", label=name, cells=(size,)) for name, size in rows)
     return Navigation(
-        menus=(MAIN_MENU, Menu("apps.uninstall.title", items, SIZE_COLUMNS)), selected=(0, 0)
+        menus=(MAIN_MENU, Menu("programs.title", items, SIZE_COLUMNS)), selected=(0, 0)
     )
 
 
@@ -142,9 +142,9 @@ def test_after_an_uninstall_the_list_keeps_its_sort_and_the_cursor_its_place_in_
 
     def loader() -> Menu:
         items = tuple(program(name, size) for name, size in installed.items())
-        return Menu("apps.uninstall.title", items, SIZE_COLUMNS)
+        return Menu("programs.title", items, SIZE_COLUMNS)
 
-    parent = Menu("maintenance.title", (MenuItem("apps.uninstall", submenu_loader=loader),))
+    parent = Menu("maintenance.title", (MenuItem("programs.uninstall", submenu_loader=loader),))
     opened = press(Navigation(menus=(MAIN_MENU, parent), selected=(0, 0)), Key.ENTER)
     by_size = press(opened, Key.COLUMN_2)  # mostrado: B, C, A
     running = press(by_size, Key.ENTER)  # o cursor foi para B, a primeira mostrada
@@ -182,14 +182,14 @@ def test_the_update_all_option_stays_last_in_any_sort_and_runs_its_own_action() 
     items = (
         app("A", "3"),
         app("B", "1"),
-        MenuItem("apps.update_all", action=update_all, runs_all=True),
+        MenuItem("programs.update_all", action=update_all, runs_all=True),
     )
-    menu = Menu("apps.update.title", items, (("c", 8), ("l", 8)))
+    menu = Menu("programs.title", items, (("c", 8), ("l", 8)))
     navigation = Navigation(menus=(MAIN_MENU, menu), selected=(0, 0))
 
     by_version = press(navigation, Key.COLUMN_2)
 
-    assert [menu.items[i].label_key for i in display_order(by_version)][-1] == "apps.update_all"
+    assert [menu.items[i].label_key for i in display_order(by_version)][-1] == "programs.update_all"
     assert press(replace(navigation, selected=(0, 2)), Key.ENTER).running is update_all
 
 
@@ -197,7 +197,7 @@ def test_opening_or_reloading_a_list_is_announced_so_the_loading_can_be_shown() 
     def loader() -> Menu:
         return Menu("programs.title", ())
 
-    parent = Menu("maintenance.title", (MenuItem("apps.uninstall", submenu_loader=loader),))
+    parent = Menu("maintenance.title", (MenuItem("programs.uninstall", submenu_loader=loader),))
     closed = Navigation(menus=(MAIN_MENU, parent), selected=(0, 0))
 
     assert loads_menu(closed, Key.ENTER)

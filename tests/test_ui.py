@@ -9,16 +9,18 @@ from caduceus.config import SELECTED_STYLE, WINDOW_LINES
 from caduceus.controllers import tables
 from caduceus.controllers.keys import Key
 from caduceus.controllers.menu_model import Menu, MenuItem, item_label
-from caduceus.controllers.menus import MAIN_MENU, PERFORMANCE_MENU, SETTINGS_MENU
+from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, PERFORMANCE_MENU, SETTINGS_MENU
 from caduceus.controllers.navigation import Navigation, press
 from caduceus.controllers.tables import programs_menu, startup_menu
 from caduceus.maintenance.apps.installed_programs import InstalledProgram
+from caduceus.maintenance.apps.winget_upgrades import UpgradableApp
 from caduceus.maintenance.performance import power_plan
 from caduceus.maintenance.performance.optimize_drives import Drive
 from caduceus.maintenance.performance.startup_programs import StartupEntry, StartupSource
 from caduceus.settings import Settings
 from caduceus.ui import render
 from caduceus.ui.i18n import load_texts
+from caduceus.ui.palette import ACCENT
 from caduceus.ui.render import format_estimate, format_size
 
 
@@ -40,10 +42,13 @@ def fictitious_lists(monkeypatch: pytest.MonkeyPatch) -> None:
             winreg.HKEY_CURRENT_USER,
             f"Software\\CaduceusTests\\program{n}",
         )
-        for n in range(12)
+        for n in range(25)
     ]
+    upgrades = [UpgradableApp("Program 03", "Maker.Program03", "1.0", "2.0")]
     monkeypatch.setattr(tables, "list_startup_entries", lambda: startup)
     monkeypatch.setattr(tables, "list_installed_programs", lambda: programs)
+    monkeypatch.setattr(tables, "list_store_apps", list)
+    monkeypatch.setattr(tables, "list_upgradable", lambda: upgrades)
 
 
 @pytest.mark.parametrize(
@@ -103,7 +108,7 @@ def screen_lines(navigation: Navigation, height: int = WINDOW_LINES) -> list[str
     return console.export_text().splitlines()
 
 
-def test_the_active_plan_is_only_shown_inside_the_power_plan_submenu(
+def test_the_power_plan_option_shows_the_current_plan_beside_its_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(power_plan, "_active_scheme", lambda: power_plan._BALANCED)
@@ -114,12 +119,52 @@ def test_the_active_plan_is_only_shown_inside_the_power_plan_submenu(
     )
     navigation = Navigation(menus=(PERFORMANCE_MENU,), selected=(index,))
 
-    parent = next(line for line in screen_lines(navigation) if "Power plan" in line)
-    assert parent.lstrip().startswith("Power plan   ")
+    line = next(line for line in screen_lines(navigation) if "Power plan" in line)
+    assert line.lstrip().startswith("Power plan BALANCED")
 
     submenu = screen_lines(press(navigation, Key.ENTER))
-    assert any("Balanced ON" in line for line in submenu)
-    assert any("High performance OFF" in line for line in submenu)
+    assert any("BALANCED ON" in line for line in submenu)
+    assert any("HIGH OFF" in line for line in submenu)
+
+    monkeypatch.setattr(power_plan, "_active_scheme", lambda: power_plan._HIGH)
+    line = next(line for line in screen_lines(navigation) if "Power plan" in line)
+    assert line.lstrip().startswith("Power plan HIGH")
+
+
+@pytest.mark.parametrize("selected", [0, 12, 24])
+def test_the_run_all_options_stay_visible_while_only_the_table_scrolls(selected: int) -> None:
+    programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, selected))
+    cleanup = Navigation(menus=(MAIN_MENU, CLEANUP_MENU), selected=(0, selected % 5))
+
+    for navigation, pinned in (
+        (programs, ["► UPDATE ALL"]),
+        (cleanup, ["» FAST CLEANUPS", "► ALL CLEANUPS"]),
+    ):
+        lines = screen_lines(navigation)
+
+        assert len(lines) == WINDOW_LINES
+        for text in pinned:
+            assert any(text in line for line in lines)
+
+
+def test_the_pinned_options_come_after_the_last_row_of_the_table_and_the_cursor_reaches_them() -> (
+    None
+):
+    programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 24))
+    last_row = press(programs, Key.DOWN)
+
+    assert last_row.item.runs_all
+    lines = screen_lines(last_row)
+    assert any("Program 24" in line for line in lines)  # a tabela mostra o seu fim
+    assert not any("Program 00" in line for line in lines)
+
+
+def test_the_run_all_options_share_the_same_style_and_name_case() -> None:
+    texts = load_texts("en")
+
+    assert render._pinned_style(False) == f"bold {ACCENT}"
+    for key in ("cleanup.fast", "cleanup.all", "programs.update_all"):
+        assert texts[key] == texts[key].upper()
 
 
 def test_the_drive_table_shows_media_type_size_and_free_space(
@@ -154,7 +199,7 @@ def test_restart_as_administrator_is_shown_only_without_administrator() -> None:
 
 def test_a_text_cell_without_a_translation_is_shown_as_it_is() -> None:
     items = (MenuItem("store.item", label="Some App", cells=("0.20.65.0",)),)
-    table = Menu("apps.repair.title", items, (("apps.store.column.version", 14),))
+    table = Menu("programs.title", items, (("programs.column.version", 14),))
 
     lines = screen_lines(Navigation(menus=(MAIN_MENU, table), selected=(0, 0)))
 
@@ -164,13 +209,13 @@ def test_a_text_cell_without_a_translation_is_shown_as_it_is() -> None:
 def test_the_sort_key_appears_in_the_controls_of_the_tables_only() -> None:
     programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 0))
 
-    assert "1-2 Sort" in screen_lines(programs)[-2]
+    assert "1-4 Sort" in screen_lines(programs)[-2]
     assert "Sort" not in screen_lines(Navigation())[-2]
 
 
 def test_the_sorted_column_shows_the_direction_in_its_title() -> None:
     programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 0))
-    by_size = press(press(programs, Key.COLUMN_2), Key.COLUMN_2)
+    by_size = press(press(programs, Key.COLUMN_4), Key.COLUMN_4)
 
     assert any("Size ▼" in line for line in screen_lines(by_size))
     assert not any("▲" in line or "▼" in line for line in screen_lines(programs))

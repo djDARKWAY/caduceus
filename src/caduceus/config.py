@@ -21,7 +21,7 @@ DETAIL_WIDTH   = 62         # largura máxima da descrição, em colunas
 PROGRESS_WIDTH = 40         # largura da barra de progresso, em colunas
 PROGRESS_REFRESH_SECONDS = 0.1  # intervalo mínimo entre redesenhos da barra de progresso
 CONFIRM_WIDTH  = 90         # largura do quadro de confirmação, em colunas
-TABLE_MAX_ROWS = 10         # linhas visíveis de cada vez numa tabela (as outras deslocam-se)
+TABLE_MAX_ROWS = 10         # linhas da tabela visíveis de cada vez (as outras deslocam-se)
 MAX_LISTED_PLACES = 3       # locais listados num aviso do resultado (os restantes são contados)
 
 # ==============================================================================

@@ -2,12 +2,13 @@
 Tabelas
 
 Os menus que se criam ao abrir, a partir do que o Windows tem agora: os programas de arranque, as
-tarefas agendadas, as unidades, os programas instalados, as atualizações e as aplicações da Store.
+tarefas agendadas, as unidades e os programas (instalados, da Store e com atualização).
 Cada um devolve um `Menu` com uma opção por linha da tabela.
 """
 
+from dataclasses import dataclass
+
 from caduceus.controllers.menu_model import AdminNeed, Menu, MenuItem
-from caduceus.maintenance.actions import Action
 from caduceus.maintenance.apps.installed_programs import (
     InstalledProgram,
     list_installed_programs,
@@ -174,129 +175,196 @@ def drives_menu() -> Menu:
     )
 
 
-def _program_item(program: InstalledProgram) -> MenuItem:
-    """Um programa da lista. Se o desinstalador já não existe, escolher o programa limpa o resto
-    que ficou no registo (e não abre nada); essa limpeza não põe o sistema em risco."""
-    if program.has_missing_uninstaller:
-        action, confirm_key = remove_leftover_entry(program), "apps.uninstall.stale.confirm"
-        description_key, risky = "apps.uninstall.item.stale.description", False
-        admin = AdminNeed.ALL if program.entry_needs_admin else None
-    else:
-        action, confirm_key = uninstall_program(program), "apps.uninstall.confirm"
-        description_key = (
-            "apps.uninstall.item.protected.description"
-            if program.needs_safe_mode_off
-            else "apps.uninstall.item.description"
-        )
-        risky, admin = program.needs_safe_mode_off, None
+@dataclass(frozen=True)
+class _Entry:
+    """Uma linha da tabela dos programas: o que o Windows sabe dele em cada fonte."""
+
+    name: str
+    program: InstalledProgram | None = None
+    store_app: StoreApp | None = None
+    upgrade: UpgradableApp | None = None
+
+
+def _entries(upgrades: list[UpgradableApp]) -> list[_Entry]:
+    """Os programas instalados e as aplicações da Store, cada um com a atualização que o winget lhe
+    conhece (pelo nome, ou pelo ID, nas aplicações da Store). Uma atualização que não corresponde a
+    nenhum fica numa linha só dela, para nenhuma se perder."""
+    by_name = {upgrade.name.casefold(): upgrade for upgrade in upgrades}
+    by_id = {upgrade.package_id.casefold(): upgrade for upgrade in upgrades}
+    matched: set[str] = set()
+    entries: list[_Entry] = []
+    for program in list_installed_programs():
+        upgrade = by_name.get(program.name.casefold())
+        entries.append(_Entry(program.name, program=program, upgrade=upgrade))
+        if upgrade is not None:
+            matched.add(upgrade.package_id)
+    for app in list_store_apps():
+        upgrade = by_id.get(app.name.casefold())
+        entries.append(_Entry(app.name, store_app=app, upgrade=upgrade))
+        if upgrade is not None:
+            matched.add(upgrade.package_id)
+    entries += [
+        _Entry(upgrade.name, upgrade=upgrade)
+        for upgrade in upgrades
+        if upgrade.package_id not in matched
+    ]
+    return sorted(entries, key=lambda entry: entry.name.casefold())
+
+
+def _update_option(upgrade: UpgradableApp | None) -> MenuItem:
+    if upgrade is None:
+        return MenuItem("programs.update", unavailable=True)
     return MenuItem(
-        f"program:{program.hive}:{program.key_path}",
-        label=program.name,
-        action=action,
-        description_key=description_key,
+        "programs.update",
+        action=update_apps([upgrade]),
+        description_key="programs.update.description",
         description_values={
+            "name": upgrade.name,
+            "id": upgrade.package_id,
+            "version": upgrade.version or "-",
+            "available": upgrade.available or "-",
+        },
+        refreshes_menu=True,
+    )
+
+
+def _store_options(app: StoreApp | None) -> tuple[MenuItem, MenuItem]:
+    if app is None:
+        repair = MenuItem("programs.repair", unavailable=True)
+        return repair, MenuItem("programs.reset", unavailable=True)
+    values = {"name": app.full_name, "version": app.version or "-"}
+    repair = MenuItem(
+        "programs.repair",
+        action=repair_store_app(app),
+        description_key="programs.repair.description",
+        description_values=values,
+    )
+    reset = MenuItem(
+        "programs.reset",
+        action=reset_store_app(app),
+        description_key="programs.reset.description",
+        description_values=values,
+        risky=True,
+        confirm_key="programs.reset.confirm",
+    )
+    return repair, reset
+
+
+def _uninstall_option(program: InstalledProgram | None) -> MenuItem:
+    """Desinstalar. Se o desinstalador já não existe, escolher a opção limpa o resto que ficou no
+    registo (e não abre nada); essa limpeza não põe o sistema em risco."""
+    if program is None:
+        return MenuItem("programs.uninstall", unavailable=True)
+    values = {
+        "name": program.name,
+        "publisher": program.publisher or "-",
+        "version": program.version or "-",
+        "installed": program.installed_on or "-",
+        "command": program.uninstall_command,
+        "location": program.install_location or "-",
+    }
+    if program.has_missing_uninstaller:
+        return MenuItem(
+            "programs.uninstall",
+            action=remove_leftover_entry(program),
+            description_key="programs.uninstall.stale.description",
+            description_values=values,
+            admin=AdminNeed.ALL if program.entry_needs_admin else None,
+            confirm_key="programs.uninstall.stale.confirm",
+            refreshes_menu=True,
+        )
+    return MenuItem(
+        "programs.uninstall",
+        action=uninstall_program(program),
+        description_key=(
+            "programs.uninstall.protected.description"
+            if program.needs_safe_mode_off
+            else "programs.uninstall.description"
+        ),
+        description_values=values,
+        risky=program.needs_safe_mode_off,
+        refreshes_menu=True,
+    )
+
+
+def _actions_menu(entry: _Entry) -> Menu:
+    """As quatro possibilidades de um programa; as que não se aplicam a ele ficam esbatidas."""
+    repair, reset = _store_options(entry.store_app)
+    return Menu(
+        "programs.title",
+        (_update_option(entry.upgrade), repair, reset, _uninstall_option(entry.program)),
+        title=entry.name,
+    )
+
+
+def _row_identity(entry: _Entry) -> tuple[str, str, dict[str, str]]:
+    """A chave da linha, a chave do texto da descrição e os valores que a completam."""
+    if entry.program is not None:
+        program = entry.program
+        values = {
             "name": program.name,
             "publisher": program.publisher or "-",
             "version": program.version or "-",
             "installed": program.installed_on or "-",
-            "command": program.uninstall_command,
-            "location": program.install_location or "-",
-        },
-        admin=admin,
-        risky=risky,
-        confirm_key=confirm_key,
-        cells=(program.size_bytes,),
-        refreshes_menu=True,
+        }
+        return f"program:{program.hive}:{program.key_path}", "programs.item.description", values
+    if entry.store_app is not None:
+        app = entry.store_app
+        values = {"name": app.full_name, "version": app.version or "-"}
+        return f"store:{app.full_name}", "programs.item.store.description", values
+    assert (
+        entry.upgrade is not None
+    )  # sem programa nem aplicação, a linha nasceu de uma atualização
+    upgrade = entry.upgrade
+    values = {"name": upgrade.name, "id": upgrade.package_id, "version": upgrade.version or "-"}
+    return f"update:{upgrade.package_id}", "programs.item.winget.description", values
+
+
+def _program_row(entry: _Entry) -> MenuItem:
+    key, description_key, values = _row_identity(entry)
+    version = (
+        (entry.program.version if entry.program else "")
+        or (entry.store_app.version if entry.store_app else "")
+        or (entry.upgrade.version if entry.upgrade else "")
+    )
+    available = entry.upgrade.available if entry.upgrade else ""
+    return MenuItem(
+        key,
+        label=entry.name,
+        submenu=_actions_menu(entry),
+        description_key=description_key,
+        description_values=values,
+        cells=(
+            version or None,
+            available or None,
+            entry.program.size_bytes if entry.program else None,
+        ),
     )
 
 
 def programs_menu() -> Menu:
-    """O menu dos programas instalados, criado a partir do que o Windows tem registado agora."""
-    items = tuple(_program_item(program) for program in list_installed_programs())
-    return Menu(
-        "apps.uninstall.title",
-        items
-        or (MenuItem("apps.uninstall.none", description_key="apps.uninstall.none.description"),),
-        (("apps.uninstall.column.size", 9),),
-    )
-
-
-def _update_item(app: UpgradableApp) -> MenuItem:
-    return MenuItem(
-        f"update:{app.package_id}",
-        label=app.name,
-        action=update_apps([app]),
-        description_key="apps.update.item.description",
-        description_values={
-            "name": app.name,
-            "id": app.package_id,
-            "version": app.version or "-",
-            "available": app.available or "-",
-        },
-        cells=(app.version or None, app.available or None),
-        refreshes_menu=True,
-    )
-
-
-def _update_empty_item(failed: bool) -> MenuItem:
-    key = "apps.update.failed" if failed else "apps.update.none"
-    return MenuItem(key, description_key=f"{key}.description")
-
-
-def update_menu() -> Menu:
-    """O menu das aplicações com atualização, criado a partir do que o winget encontra agora, com
-    a opção que as atualiza todas no fim."""
-    listed = list_upgradable()
-    apps = listed or []
-    items = tuple(_update_item(app) for app in apps)
-    if apps:
+    """O menu dos programas (instalados, da Store e com atualização), criado a partir do que o
+    Windows e o winget conhecem agora, com a opção que atualiza tudo no fim."""
+    upgrades = list_upgradable() or []
+    items = tuple(_program_row(entry) for entry in _entries(upgrades))
+    if upgrades:
         items += (
             MenuItem(
-                "apps.update_all",
-                action=update_apps(apps),
-                description_key="apps.update_all.description",
+                "programs.update_all",
+                action=update_apps(upgrades),
+                description_key="programs.update_all.description",
                 runs_all=True,
                 refreshes_menu=True,
             ),
         )
     return Menu(
-        "apps.update.title",
-        items or (_update_empty_item(failed=listed is None),),
-        (("apps.update.column.current", 18), ("apps.update.column.available", 18)),
+        "programs.title",
+        items or (MenuItem("programs.none", description_key="programs.none.description"),),
+        (
+            ("programs.column.version", 14),
+            ("programs.column.latest", 14),
+            ("programs.column.size", 9),
+        ),
         name_width=22,
+        cells_are_estimates=False,
     )
-
-
-def _store_app_item(app: StoreApp, action: Action, kind: str, risky: bool = False) -> MenuItem:
-    return MenuItem(
-        f"store_{kind}:{app.full_name}",
-        label=app.name,
-        action=action,
-        description_key=f"apps.{kind}.item.description",
-        description_values={"name": app.full_name, "version": app.version or "-"},
-        risky=risky,
-        confirm_key="apps.reset.confirm" if risky else None,
-        cells=(app.version or None,),
-    )
-
-
-def _store_menu(kind: str) -> Menu:
-    """O menu das aplicações da Store, para repará-las (`repair`) ou repô-las (`reset`)."""
-    apps = list_store_apps()
-    if kind == "repair":
-        items = tuple(_store_app_item(app, repair_store_app(app), kind) for app in apps)
-    else:
-        items = tuple(_store_app_item(app, reset_store_app(app), kind, risky=True) for app in apps)
-    return Menu(
-        f"apps.{kind}.title",
-        items or (MenuItem("apps.store.none", description_key="apps.store.none.description"),),
-        (("apps.store.column.version", 14),),
-    )
-
-
-def repair_store_menu() -> Menu:
-    return _store_menu("repair")
-
-
-def reset_store_menu() -> Menu:
-    return _store_menu("reset")

@@ -33,7 +33,9 @@ class AdminNeed(Enum):
 # de um texto traduzido, e None é «não se sabe»); `submenu_loader`, o que cria o submenu ao entrar
 # nele; `instant`, as ações que voltam logo ao menu quando não têm resultados a mostrar;
 # `refreshes_menu`, as ações que mudam a lista (por exemplo, desinstalar), que volta a criar-se
-# quando o utilizador sai do resultado.
+# quando o utilizador sai do resultado; `unavailable`, a opção que não se aplica ao que o menu
+# descreve (esbatida e saltada pelo cursor, mas sempre visível); `value`, o valor atual da opção
+# (a chave do texto traduzido), mostrado ao lado do nome quando a opção troca entre valores.
 @dataclass(frozen=True)
 class MenuItem:
     label_key: str
@@ -58,10 +60,14 @@ class MenuItem:
     submenu_loader: Callable[[], "Menu"] | None = None
     instant: bool = False
     refreshes_menu: bool = False
+    unavailable: bool = False
+    value: Callable[[], str] | None = None
 
 
 # `columns` são os títulos (a chave do texto) e a largura das colunas das células das opções,
-# quando o menu é uma tabela; `name_width`, a largura da coluna do nome, se não for a habitual
+# quando o menu é uma tabela; `name_width`, a largura da coluna do nome, se não for a habitual;
+# `title`, o título criado ao abrir o menu (por exemplo, o nome de um programa), em vez de
+# `title_key`
 @dataclass(frozen=True)
 class Menu:
     title_key: str
@@ -70,7 +76,12 @@ class Menu:
     name_width: int | None = None
     name_key: str = "table.program"
     cells_are_estimates: bool = True
+    title: str | None = None
 
 
 def item_label(texts: Mapping[str, str], item: MenuItem) -> str:
     return item.label if item.label is not None else texts.get(item.label_key, item.label_key)
+
+
+def menu_title(texts: Mapping[str, str], menu: Menu) -> str:
+    return menu.title if menu.title is not None else texts[menu.title_key]

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from caduceus.controllers import tables
-from caduceus.controllers.menu_model import AdminNeed
+from caduceus.controllers.menu_model import AdminNeed, MenuItem
 from caduceus.controllers.tables import programs_menu
 from caduceus.maintenance.actions import Report, Step
 from caduceus.maintenance.apps import installed_programs
@@ -284,6 +284,11 @@ def test_a_machine_entry_is_not_touched_without_administrator(
     assert outcome.admin_required == ("Example",)
 
 
+def uninstall_option(row: MenuItem) -> MenuItem:
+    assert row.submenu is not None
+    return row.submenu.items[-1]
+
+
 def test_a_program_with_a_missing_uninstaller_offers_to_clean_the_leftover_instead(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -294,12 +299,15 @@ def test_a_program_with_a_missing_uninstaller_offers_to_clean_the_leftover_inste
     )
     here = program_running("MsiExec.exe /X{GUID}", machine)
     monkeypatch.setattr(tables, "list_installed_programs", lambda: [gone, runtime, here])
+    monkeypatch.setattr(tables, "list_store_apps", list)
+    monkeypatch.setattr(tables, "list_upgradable", list)
 
-    stale_machine, stale_user, healthy = programs_menu().items
+    # As linhas vêm por ordem de nome, e a desinstalação é a última das quatro possibilidades
+    stale_machine, healthy, stale_user = (uninstall_option(row) for row in programs_menu().items)
 
-    assert stale_machine.confirm_key == "apps.uninstall.stale.confirm"
+    assert stale_machine.confirm_key == "programs.uninstall.stale.confirm"
     assert stale_machine.admin is AdminNeed.ALL
     assert not stale_machine.risky
     assert stale_user.admin is None
     assert not stale_user.risky  # um runtime sem desinstalador não há o que proteger
-    assert healthy.confirm_key == "apps.uninstall.confirm"
+    assert healthy.confirm_key is None  # o desinstalador do programa é que pede confirmação

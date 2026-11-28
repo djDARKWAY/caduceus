@@ -7,12 +7,7 @@ from caduceus.controllers.keys import Key
 from caduceus.controllers.menus import PERFORMANCE_MENU
 from caduceus.controllers.navigation import Navigation, column_count, complete, loads_menu, press
 from caduceus.maintenance.actions import Report, Step
-from caduceus.maintenance.performance import (
-    free_standby,
-    optimize_drives,
-    power_plan,
-    restart_explorer,
-)
+from caduceus.maintenance.performance import free_standby, optimize_drives, power_plan
 from caduceus.maintenance.powershell import run_powershell
 
 
@@ -48,7 +43,7 @@ def test_high_performance_is_only_duplicated_if_neither_scheme_exists(
     assert not outcome.failures
 
 
-def test_balanced_can_be_selected_in_basic_mode_and_the_active_plan_updates(
+def test_the_power_plan_opens_a_menu_where_either_plan_can_be_chosen_in_basic_mode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     active = power_plan._HIGH_COPY
@@ -62,39 +57,31 @@ def test_balanced_can_be_selected_in_basic_mode_and_the_active_plan_updates(
     monkeypatch.setattr(power_plan, "run_system_tool", run)
     monkeypatch.setattr(power_plan, "_active_scheme", lambda: active)
     parent = replace(performance_option("performance.power_plan"), administrator=False)
+    assert parent.item.value is not None
+    assert parent.item.value() == "performance.power_plan.high"
     submenu = press(parent, Key.ENTER)
     assert submenu.menu.title_key == "performance.power_plan.title"
+    assert [item.label_key for item in submenu.menu.items] == [
+        "performance.power_plan.balanced",
+        "performance.power_plan.high",
+    ]
     assert [item.state() for item in submenu.menu.items if item.state is not None] == [False, True]
 
     running = press(submenu, Key.ENTER)
     assert running.running is not None
-    assert not running.running(lambda _: None).failures
-
-    assert [item.state() for item in submenu.menu.items if item.state is not None] == [True, False]
-
-
-def test_restart_explorer_closes_then_reopens_the_shell(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str] = []
-
-    def stop(*, force_if_unresponsive: bool) -> bool:
-        assert force_if_unresponsive
-        calls.append("stop")
-        return True
-
-    def start() -> bool:
-        calls.append("start")
-        return True
-
-    monkeypatch.setattr(restart_explorer, "stop_explorer", stop)
-    monkeypatch.setattr(restart_explorer, "start_explorer", start)
-    at_restart = replace(performance_option("performance.restart_explorer"), administrator=False)
-    running = press(at_restart, Key.ENTER)
-    assert running.running is not None
-
     done = complete(running, running.running(lambda _: None))
 
-    assert calls == ["stop", "start"]
-    assert done.outcome is None and done.running is None
+    assert done.outcome is None and done.menu is submenu.menu  # volta logo ao submenu
+    assert [item.state() for item in submenu.menu.items if item.state is not None] == [True, False]
+    assert parent.item.value() == "performance.power_plan.balanced"
+
+
+def test_a_plan_other_than_balanced_or_high_is_shown_as_other(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(power_plan, "_active_scheme", lambda: UUID(int=1))
+
+    assert power_plan.active_plan() == "performance.power_plan.other"
 
 
 def test_standby_memory_still_shows_the_ram_gain_for_an_instant_action(

@@ -32,7 +32,7 @@ from caduceus.config import (
     TABLE_MAX_ROWS,
     WINDOW_LINES,
 )
-from caduceus.controllers.menu_model import MenuItem, item_label
+from caduceus.controllers.menu_model import MenuItem, item_label, menu_title
 from caduceus.controllers.navigation import (
     Navigation,
     Sort,
@@ -146,6 +146,9 @@ def _render_option(
             style=ACCENT if is_on else DANGER,
         )
         option.append(" ")
+    if item.value is not None:
+        option.append(texts[item.value()], style=ACCENT)
+        option.append(" ")
     option.pad_right(max(0, MENU_WIDTH - option.cell_len))
     return option
 
@@ -210,8 +213,8 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
     )
     items = navigation.menu.items
     order = display_order(navigation)
-    visible = _visible_rows(len(order), order.index(navigation.index))
-    for position in visible:
+    scrolling, pinned = _table_rows(navigation)
+    for position in (*scrolling, *pinned):
         index = order[position]
         item = items[index]
         selected = index == navigation.index
@@ -221,13 +224,11 @@ def _render_estimates_table(texts: Texts, navigation: Navigation) -> RenderableT
                 for other in items
                 if not is_blocked(navigation, other) and not skipped_in_batch(item, other)
             )
-            if position > visible.start and not items[order[position - 1]].runs_all:
+            if position == pinned.start and scrolling:
                 table.add_section()
-            weight = "" if item.skips_slow else "bold "
-            style = f"bold white on {ACCENT}" if selected else f"{weight}{ACCENT}"
-            mark = RUN_FAST_MARK if item.skips_slow else RUN_ALL_MARK
-            title = Text(f" {mark} {item_label(texts, item)}")
-            table.add_row(title, format_estimate(total), style=style)
+            table.add_row(
+                _pinned_title(texts, item), format_estimate(total), style=_pinned_style(selected)
+            )
             continue
         blocked = is_blocked(navigation, item)
         estimate = navigation.estimates.get(item.label_key)
@@ -251,6 +252,27 @@ def _visible_rows(count: int, index: int) -> range:
     """As linhas da lista que cabem no ecrã, com a selecionada lá dentro (a meio, se possível)."""
     start = min(max(index - TABLE_MAX_ROWS // 2, 0), max(count - TABLE_MAX_ROWS, 0))
     return range(start, min(start + TABLE_MAX_ROWS, count))
+
+
+def _table_rows(navigation: Navigation) -> tuple[range, range]:
+    """As posições (pela ordem mostrada) das linhas que se deslocam e das fixas. As fixas são as
+    opções que correm tudo, sempre no fim e sempre visíveis; com o cursor numa delas, a tabela
+    mostra o seu fim."""
+    order = display_order(navigation)
+    items = navigation.menu.items
+    scrolling_count = sum(not items[index].runs_all for index in order)
+    position = order.index(navigation.index)
+    visible = _visible_rows(scrolling_count, min(position, scrolling_count - 1))
+    return visible, range(scrolling_count, len(order))
+
+
+def _pinned_title(texts: Texts, item: MenuItem) -> Text:
+    mark = RUN_FAST_MARK if item.skips_slow else RUN_ALL_MARK
+    return Text(f" {mark} {item_label(texts, item)}")
+
+
+def _pinned_style(selected: bool) -> str:
+    return f"bold white on {ACCENT}" if selected else f"bold {ACCENT}"
 
 
 def _state_cell(texts: Texts, item: MenuItem, settings: Settings, selected: bool) -> Text:
@@ -302,7 +324,8 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
     _add_cells_columns(table, texts, navigation)
     has_state = has_state_column(menu)
     order = display_order(navigation)
-    for position in _visible_rows(len(order), order.index(navigation.index)):
+    scrolling, pinned = _table_rows(navigation)
+    for position in (*scrolling, *pinned):
         index = order[position]
         item = menu.items[index]
         selected = index == navigation.index
@@ -310,12 +333,9 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
         cells = [_cell_text(texts, cell, menu.cells_are_estimates) for cell in item.cells]
         cells += [""] * (len(menu.columns) - len(cells))
         if item.runs_all:
-            if position > 0 and not menu.items[order[position - 1]].runs_all:
+            if position == pinned.start and scrolling:
                 table.add_section()
-            style = f"bold white on {ACCENT}" if selected else f"bold {ACCENT}"
-            table.add_row(
-                Text(f" {RUN_ALL_MARK} {item_label(texts, item)}"), *state, *cells, style=style
-            )
+            table.add_row(_pinned_title(texts, item), *state, *cells, style=_pinned_style(selected))
             continue
         blocked = is_blocked(navigation, item)
         table.add_row(
@@ -324,18 +344,28 @@ def _render_cells_table(texts: Texts, navigation: Navigation) -> RenderableType:
             *cells,
             style=SELECTED_STYLE if selected else ("dim" if blocked else ""),
         )
-    found = sum(item.action is not None and not item.runs_all for item in menu.items)
+    found = sum(
+        (item.action is not None or item.submenu is not None) and not item.runs_all
+        for item in menu.items
+    )
     return Group(_menu_title(texts, navigation, found), table)
+
+
+def _is_unavailable(_navigation: Navigation, item: MenuItem) -> bool:
+    return item.unavailable
 
 
 def _menu_title(texts: Texts, navigation: Navigation, count: int | None = None) -> Text:
     """O título do menu (com a contagem, se houver) e, a esbatido, porque há opções esbatidas."""
-    title = texts[navigation.menu.title_key] + ("" if count is None else f" ({count})")
+    title = menu_title(texts, navigation.menu) + ("" if count is None else f" ({count})")
     text = Text(title, style=f"bold {ACCENT}")
     items = navigation.menu.items
     reasons = [
         texts[key]
-        for key, blocked in (("blocked.safe_mode", blocked_by_safe_mode),)
+        for key, blocked in (
+            ("blocked.safe_mode", blocked_by_safe_mode),
+            ("blocked.unavailable", _is_unavailable),
+        )
         if any(blocked(navigation, item) for item in items)
     ]
     if reasons:
@@ -581,7 +611,7 @@ def render_screen(texts: Texts, navigation: Navigation) -> RenderableType:
 
 def render_progress(texts: Texts, navigation: Navigation, step: Step) -> RenderableType:
     title = (
-        texts[navigation.menu.title_key]
+        menu_title(texts, navigation.menu)
         if navigation.estimating
         else item_label(texts, navigation.item)
     )

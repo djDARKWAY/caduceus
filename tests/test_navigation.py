@@ -591,9 +591,9 @@ def test_after_an_uninstall_the_list_is_created_again_without_the_program() -> N
         return MenuItem(f"program:{name}", label=name, action=uninstall, refreshes_menu=True)
 
     def loader() -> Menu:
-        return Menu("apps.uninstall.title", tuple(program(name) for name in installed))
+        return Menu("programs.title", tuple(program(name) for name in installed))
 
-    parent = Menu("apps.title", (MenuItem("apps.programs", submenu_loader=loader),))
+    parent = Menu("maintenance.title", (MenuItem("apps.programs", submenu_loader=loader),))
     start = Navigation(menus=(MAIN_MENU, parent), selected=(0, 0))
     navigation = press(press(start, Key.ENTER), Key.DOWN)
     running = press(navigation, Key.ENTER)
