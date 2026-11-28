@@ -182,14 +182,14 @@ def test_the_update_all_option_stays_last_in_any_sort_and_runs_its_own_action() 
     items = (
         app("A", "3"),
         app("B", "1"),
-        MenuItem("programs.update_all", action=update_all, runs_all=True),
+        MenuItem("updates.update_all", action=update_all, runs_all=True),
     )
     menu = Menu("programs.title", items, (("c", 8), ("l", 8)))
     navigation = Navigation(menus=(MAIN_MENU, menu), selected=(0, 0))
 
     by_version = press(navigation, Key.COLUMN_2)
 
-    assert [menu.items[i].label_key for i in display_order(by_version)][-1] == "programs.update_all"
+    assert [menu.items[i].label_key for i in display_order(by_version)][-1] == "updates.update_all"
     assert press(replace(navigation, selected=(0, 2)), Key.ENTER).running is update_all
 
 

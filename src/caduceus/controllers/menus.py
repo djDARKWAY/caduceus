@@ -7,7 +7,13 @@ menus que se criam ao abrir (as tabelas) estão em `tables.py`.
 """
 
 from caduceus.controllers.menu_model import AdminNeed, Menu, MenuItem
-from caduceus.controllers.tables import drives_menu, programs_menu, startup_menu, tasks_menu
+from caduceus.controllers.tables import (
+    drives_menu,
+    programs_menu,
+    startup_menu,
+    tasks_menu,
+    updates_menu,
+)
 from caduceus.maintenance.admin import restart_as_administrator
 from caduceus.maintenance.free_space.app_caches import clean_app_caches, estimate_app_caches
 from caduceus.maintenance.free_space.browser_caches import (
@@ -249,6 +255,11 @@ MAINTENANCE_MENU = Menu(
             "maintenance.programs",
             submenu_loader=programs_menu,
             description_key="maintenance.programs.description",
+        ),
+        MenuItem(
+            "maintenance.updates",
+            submenu_loader=updates_menu,
+            description_key="maintenance.updates.description",
         ),
     ),
 )

@@ -11,7 +11,7 @@ from caduceus.controllers.keys import Key
 from caduceus.controllers.menu_model import Menu, MenuItem, item_label
 from caduceus.controllers.menus import CLEANUP_MENU, MAIN_MENU, PERFORMANCE_MENU, SETTINGS_MENU
 from caduceus.controllers.navigation import Navigation, press
-from caduceus.controllers.tables import programs_menu, startup_menu
+from caduceus.controllers.tables import programs_menu, startup_menu, updates_menu
 from caduceus.maintenance.apps.installed_programs import InstalledProgram
 from caduceus.maintenance.apps.winget_upgrades import UpgradableApp
 from caduceus.maintenance.performance import power_plan
@@ -44,7 +44,7 @@ def fictitious_lists(monkeypatch: pytest.MonkeyPatch) -> None:
         )
         for n in range(25)
     ]
-    upgrades = [UpgradableApp("Program 03", "Maker.Program03", "1.0", "2.0")]
+    upgrades = [UpgradableApp(f"Program {n:02}", f"Maker.P{n}", "1.0", "2.0") for n in range(25)]
     monkeypatch.setattr(tables, "list_startup_entries", lambda: startup)
     monkeypatch.setattr(tables, "list_installed_programs", lambda: programs)
     monkeypatch.setattr(tables, "list_store_apps", list)
@@ -133,7 +133,7 @@ def test_the_power_plan_option_shows_the_current_plan_beside_its_name(
 
 @pytest.mark.parametrize("selected", [0, 12, 24])
 def test_the_run_all_options_stay_visible_while_only_the_table_scrolls(selected: int) -> None:
-    programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, selected))
+    programs = Navigation(menus=(MAIN_MENU, updates_menu()), selected=(0, selected))
     cleanup = Navigation(menus=(MAIN_MENU, CLEANUP_MENU), selected=(0, selected % 5))
 
     for navigation, pinned in (
@@ -150,7 +150,7 @@ def test_the_run_all_options_stay_visible_while_only_the_table_scrolls(selected:
 def test_the_pinned_options_come_after_the_last_row_of_the_table_and_the_cursor_reaches_them() -> (
     None
 ):
-    programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 24))
+    programs = Navigation(menus=(MAIN_MENU, updates_menu()), selected=(0, 24))
     last_row = press(programs, Key.DOWN)
 
     assert last_row.item.runs_all
@@ -163,7 +163,7 @@ def test_the_run_all_options_share_the_same_style_and_name_case() -> None:
     texts = load_texts("en")
 
     assert render._pinned_style(False) == f"bold {ACCENT}"
-    for key in ("cleanup.fast", "cleanup.all", "programs.update_all"):
+    for key in ("cleanup.fast", "cleanup.all", "updates.update_all"):
         assert texts[key] == texts[key].upper()
 
 
@@ -209,13 +209,13 @@ def test_a_text_cell_without_a_translation_is_shown_as_it_is() -> None:
 def test_the_sort_key_appears_in_the_controls_of_the_tables_only() -> None:
     programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 0))
 
-    assert "1-4 Sort" in screen_lines(programs)[-2]
+    assert "1-3 Sort" in screen_lines(programs)[-2]
     assert "Sort" not in screen_lines(Navigation())[-2]
 
 
 def test_the_sorted_column_shows_the_direction_in_its_title() -> None:
     programs = Navigation(menus=(MAIN_MENU, programs_menu()), selected=(0, 0))
-    by_size = press(press(programs, Key.COLUMN_4), Key.COLUMN_4)
+    by_size = press(press(programs, Key.COLUMN_3), Key.COLUMN_3)
 
     assert any("Size ▼" in line for line in screen_lines(by_size))
     assert not any("▲" in line or "▼" in line for line in screen_lines(programs))
